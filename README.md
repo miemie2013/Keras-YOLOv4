@@ -1,7 +1,14 @@
 # Keras-YOLOv4
 
 ## 概述
-今天是2020.05.20，男的，单身，想认识小姐姐。
+今天是2020.05.20，男的，单身，想认识小姐姐。2020年的愿望是希望有甜甜的恋爱。
+
+6G的卡也可训练，前提是必须要冻结网络前部分的层。以下是检测效果：
+
+<p align="center">
+    <img width="100%" src="https://github.com/miemie2013/Keras-YOLOv4/blob/master/images/res/000000014038.jpg?raw=true" style="max-width:100%;">
+    </a>
+</p>
 
 参考自https://github.com/miemie2013/Keras-DIOU-YOLOv3
 和https://github.com/Tianxiaomo/pytorch-YOLOv4
@@ -17,33 +24,32 @@ PaddlePaddle姐妹版：https://github.com/miemie2013/Paddle-DIOU-YOLOv3
 
 2020/05/20:初次见面
 
+## FBI WARNING
+
+大部分代码搬运了Keras-DIOU-YOLOv3的代码，除了网络结构大改。YOLOv4的许多料都还没有堆上去，请给我一点时间。
 
 ## 需要补充
 
-验证的代码
+验证的代码；后处理改为用张量操作实现；更多调优。
 
 ## 文件下载
-一个没有训练充分的模型：
+一个没有训练充分的模型：链接：https://pan.baidu.com/s/1TQ1AGfylIqjAhDNaoWW9mA 
+提取码：2aot
 
 ## 仓库文件介绍
 
 ```
-train.py            训练yolov3，用的是ciou loss。
-1_lambda2model.py   将训练模型中yolov3的所有部分提取出来。
-2_keras2pytorch.py  将keras模型导出为pytorch模型。
-demo_kr.py          用keras模型进行预测。对视频进行预测的话需要解除注释。
-demo_pt.py          用pytorch模型进行预测。对视频进行预测的话需要解除注释。
-evaluate_kr.py      对keras模型评估。跑完这个脚本后需要再跑mAP/main.py进行mAP的计算。
-evaluate_pt.py      对pytorch模型评估。跑完这个脚本后需要再跑mAP/main.py进行mAP的计算。
+train.py            训练yolov4。
+1_lambda2model.py   将训练模型中yolov4的所有部分提取出来。
+1_pytorch2keras.py  将Tianxiaomo的pytorch模型导出为keras模型。
+demo.py             用keras模型进行预测。
 
 
 annotation/  存放训练集、验证集的注解文件。
 data/        存放数据集物品类别名称文件（一行一个类别名称），类别名称最好不要有空格、斜杠、反斜杠，不然后面计算mAP时会报错。
 images/      用于测试的图片，放在子目录test/下。预测输出在子目录res/下。
 mAP/         对模型评估时产生的中间临时文件。
-model/       存放yolov3算法后处理的脚本。
-videos/      用于测试的视频，放在子目录test/下。
-xxxiou/      里面有giou、diou、ciou的代码，将train.py中bbox_ciou(boxes1, boxes2)函数替换掉就实现了更换损失函数来训练。
+model/       存放yolov4核心代码。
 ```
 
 ## 训练
@@ -78,14 +84,12 @@ yolov3的initial_filters默认是32，你调小initial_filters会使得模型变
 
 
 ## 评估
-训练完成后，用1_lambda2model.py将训练模型中yolov3的所有部分提取出来。
-如果你想把模型导出为pytorch模型，运行2_keras2pytorch.py脚本。
+训练完成后，用1_lambda2model.py将训练模型中yolov4的所有部分提取出来。
 运行evaluate_kr.py对keras模型（1_lambda2model.py提取出来的模型）评估，跑完这个脚本后需要再跑mAP/main.py进行mAP的计算。
-运行evaluate_pt.py对pytorch模型评估，跑完这个脚本后需要再跑mAP/main.py进行mAP的计算。
 
 
 ## 预测
-运行demo_kr.py或者是demo_pt.py。
+运行demo.py。
 
 ## 传送门
 cv算法交流q群：645796480
