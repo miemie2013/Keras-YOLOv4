@@ -1,0 +1,5 @@
+pip install tensorflow-gpu==1.12.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install keras==2.2.5 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install pydot -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install cython -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install pycocotools -i https://pypi.tuna.tsinghua.edu.cn/simple
