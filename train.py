@@ -462,6 +462,10 @@ if __name__ == '__main__':
     save_iter = 1000
     # 每隔几步计算一次eval集的mAP
     eval_iter = 5000
+    # 训练多少步
+    max_iters = 800000
+    # 步id，无需设置，会自动读。
+    iter_id = 0
 
 
 
@@ -469,7 +473,7 @@ if __name__ == '__main__':
     inputs = layers.Input(shape=(None, None, 3))
     model_body = YOLOv4(inputs, num_classes, num_anchors)
 
-    # 模式。 0-从头训练，1-读取之前的模型继续训练（model_path可以是'yolov4.h5'、'./weights/step001000.h5'、'./weights/ep001-loss36.509-val_loss34.633.h5'这些。）
+    # 模式。 0-从头训练，1-读取之前的模型继续训练（model_path可以是'yolov4.h5'、'./weights/step00001000.h5'这些。）
     pattern = 1
     save_best_only = False
     max_bbox_per_scale = 150
@@ -477,10 +481,12 @@ if __name__ == '__main__':
     if pattern == 1:
         lr = 0.0001
         batch_size = 8
-        initial_epoch = 0
-        epochs = 49900
         model_path = 'yolov4.h5'
+        # model_path = './weights/step00001000.h5'
         model_body.load_weights(model_path, by_name=True)
+        strs = model_path.split('step')
+        if len(strs) == 2:
+            iter_id = int(strs[1][:8])
 
         # 冻结，使得需要的显存减少。6G的卡建议这样配置。11G的卡建议不冻结。
         # freeze_before = 'conv2d_60'
@@ -495,8 +501,6 @@ if __name__ == '__main__':
     elif pattern == 0:
         lr = 0.00001
         batch_size = 8
-        initial_epoch = 0
-        epochs = 20
 
     y_true = [
         layers.Input(name='input_2', shape=(None, None, 3, (num_classes + 5))),  # label_sbbox
@@ -513,45 +517,6 @@ if __name__ == '__main__':
     model.summary()
     # keras.utils.vis_utils.plot_model(model_body, to_file='yolov4.png', show_shapes=True)
 
-    # 回调函数
-    checkpoint = ModelCheckpoint('./weights/ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
-                                 monitor='val_loss', save_weights_only=False,
-                                 save_best_only=save_best_only, period=1)
-    # 回调函数，保存与验证模型
-    def save_and_eval_model(batch, logs):
-        if batch > 0 and batch % save_iter == 0:
-            model.save('./weights/step%.6d.h5' % batch)
-            path_dir = os.listdir('./weights')
-            steps = []
-            names = []
-            for name in path_dir:
-                if name[len(name) - 2:len(name)] == 'h5' and name[0:4] == 'step':
-                    step = int(name[4:10])
-                    steps.append(step)
-                    names.append(name)
-            if len(steps) > 10:
-                i = steps.index(min(steps))
-                os.remove('./weights/'+names[i])
-        if batch > 0 and batch % eval_iter == 0:
-            pass
-    # 回调函数，每轮训练结束后被调用，只保留最近10个模型文件
-    def clear_models(epoch, logs):
-        path_dir = os.listdir('./weights')
-        eps = []
-        names = []
-        for name in path_dir:
-            if name[len(name) - 2:len(name)] == 'h5' and name[0:2] == 'ep':
-                sss = name.split('-')
-                ep = int(sss[0][2:])
-                eps.append(ep)
-                names.append(name)
-        if len(eps) > 10:
-            i = eps.index(min(eps))
-            os.remove('./weights/'+names[i])
-        for name in path_dir:
-            if name[len(name) - 2:len(name)] == 'h5' and name[0:4] == 'step':
-                os.remove('./weights/' + name)
-
     # 验证集和训练集
     with open(train_path) as f:
         train_lines = f.readlines()
@@ -559,6 +524,33 @@ if __name__ == '__main__':
         val_lines = f.readlines()
     num_train = len(train_lines)
     num_val = len(val_lines)
+    epochs = 999999
+    # 可能会有强迫症觉得不爽，你想和进度条真正对上，但是那样的话改起来相当麻烦。
+    initial_epoch = int(iter_id * batch_size / num_train)
+
+
+    # 回调函数，保存与验证模型
+    def save_and_eval_model(batch, logs):
+        global iter_id
+        iter_id += 1
+        if iter_id % save_iter == 0:
+            model.save('./weights/step%.8d.h5' % iter_id)
+            path_dir = os.listdir('./weights')
+            steps = []
+            names = []
+            for name in path_dir:
+                if name[len(name) - 2:len(name)] == 'h5' and name[0:4] == 'step':
+                    step = int(name[4:12])
+                    steps.append(step)
+                    names.append(name)
+            if len(steps) > 10:
+                i = steps.index(min(steps))
+                os.remove('./weights/'+names[i])
+        if iter_id % eval_iter == 0:
+            pass
+        if iter_id == max_iters:
+            print('\nDone.')
+            exit(0)
 
     # 保存模型的目录
     if not os.path.exists('./weights'): os.mkdir('./weights')
@@ -567,10 +559,8 @@ if __name__ == '__main__':
     model.fit_generator(
         generator=generate_one_batch(train_lines, batch_size, anchors, num_classes, max_bbox_per_scale, pre_path, 'train'),
         steps_per_epoch=max(1, num_train // batch_size),
-        validation_data=generate_one_batch(val_lines, batch_size, anchors, num_classes, max_bbox_per_scale, pre_path, 'val'),
-        validation_steps=max(1, num_val // batch_size),
         epochs=epochs,
         initial_epoch=initial_epoch,
-        callbacks=[checkpoint, LambdaCallback(on_batch_end=save_and_eval_model), LambdaCallback(on_epoch_end=clear_models)]
+        callbacks=[LambdaCallback(on_batch_end=save_and_eval_model)]
     )
 

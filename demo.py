@@ -10,6 +10,22 @@
 import cv2
 import os
 import time
+import tensorflow as tf
+
+
+# 6G的卡，训练时如果要预测，则设置use_gpu = False，否则显存不足。
+use_gpu = False
+# use_gpu = True
+
+# 显存分配。
+if use_gpu:
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+else:
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+from keras.backend.tensorflow_backend import set_session
+config = tf.ConfigProto()
+config.gpu_options.per_process_gpu_memory_fraction = 1.0
+set_session(tf.Session(config=config))
 
 from model.decode_np import Decode
 
