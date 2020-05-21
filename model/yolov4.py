@@ -60,8 +60,7 @@ def spp(x):
     out = layers.Concatenate()([x_4, x_3, x_2, x_1])
     return out
 
-def YOLOv4(inputs, num_classes, num_anchors):
-    initial_filters = 32
+def YOLOv4(inputs, num_classes, num_anchors, initial_filters = 32):
     i32 = initial_filters
     i64 = i32 * 2
     i128 = i32 * 4

@@ -226,7 +226,8 @@ def training_transform(height, width, output_height, output_width):
     return M, output_height, output_width
 
 def image_preporcess(image, target_size, gt_boxes=None):
-    # 这里改变了一部分原作者的代码。可以发现，传入训练的图片是bgr格式
+    # 传入训练的图片是rgb格式
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     ih, iw = target_size
     h, w = image.shape[:2]
     M, h_out, w_out = training_transform(h, w, ih, iw)
@@ -456,6 +457,14 @@ if __name__ == '__main__':
     anchors[2] /= 32
     num_anchors = len(anchors[0])  # 每个输出层有几个先验框
 
+    # ========= 一些设置 =========
+    # 每隔几步保存一次模型
+    save_iter = 1000
+    # 每隔几步计算一次eval集的mAP
+    eval_iter = 5000
+
+
+
     # 多尺度训练
     inputs = layers.Input(shape=(None, None, 3))
     model_body = YOLOv4(inputs, num_classes, num_anchors)
@@ -467,13 +476,13 @@ if __name__ == '__main__':
     iou_loss_thresh = 0.7
     if pattern == 1:
         lr = 0.0001
-        batch_size = 4
+        batch_size = 8
         initial_epoch = 0
         epochs = 49900
         model_path = 'yolov4.h5'
         model_body.load_weights(model_path, by_name=True)
 
-        # 冻结，使得需要的显存减少。6G的卡建议这样配置。11G的卡建议不冻结以及批大小改为8。
+        # 冻结，使得需要的显存减少。6G的卡建议这样配置。11G的卡建议不冻结。
         # freeze_before = 'conv2d_60'
         # freeze_before = 'conv2d_72'
         freeze_before = 'conv2d_86'
@@ -505,9 +514,26 @@ if __name__ == '__main__':
     # keras.utils.vis_utils.plot_model(model_body, to_file='yolov4.png', show_shapes=True)
 
     # 回调函数
-    checkpoint = ModelCheckpoint('./weights/ep{epoch:06d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
+    checkpoint = ModelCheckpoint('./weights/ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
                                  monitor='val_loss', save_weights_only=False,
                                  save_best_only=save_best_only, period=1)
+    # 回调函数，保存与验证模型
+    def save_and_eval_model(batch, logs):
+        if batch > 0 and batch % save_iter == 0:
+            model.save('./weights/step%.6d.h5' % batch)
+            path_dir = os.listdir('./weights')
+            steps = []
+            names = []
+            for name in path_dir:
+                if name[len(name) - 2:len(name)] == 'h5' and name[0:4] == 'step':
+                    step = int(name[4:10])
+                    steps.append(step)
+                    names.append(name)
+            if len(steps) > 10:
+                i = steps.index(min(steps))
+                os.remove('./weights/'+names[i])
+        if batch > 0 and batch % eval_iter == 0:
+            pass
     # 回调函数，每轮训练结束后被调用，只保留最近10个模型文件
     def clear_models(epoch, logs):
         path_dir = os.listdir('./weights')
@@ -521,7 +547,10 @@ if __name__ == '__main__':
                 names.append(name)
         if len(eps) > 10:
             i = eps.index(min(eps))
-            os.remove(names[i])
+            os.remove('./weights/'+names[i])
+        for name in path_dir:
+            if name[len(name) - 2:len(name)] == 'h5' and name[0:4] == 'step':
+                os.remove('./weights/' + name)
 
     # 验证集和训练集
     with open(train_path) as f:
@@ -542,6 +571,6 @@ if __name__ == '__main__':
         validation_steps=max(1, num_val // batch_size),
         epochs=epochs,
         initial_epoch=initial_epoch,
-        callbacks=[checkpoint, LambdaCallback(on_epoch_end=clear_models)]
+        callbacks=[checkpoint, LambdaCallback(on_batch_end=save_and_eval_model), LambdaCallback(on_epoch_end=clear_models)]
     )
 
