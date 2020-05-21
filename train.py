@@ -469,7 +469,7 @@ if __name__ == '__main__':
     inputs = layers.Input(shape=(None, None, 3))
     model_body = YOLOv4(inputs, num_classes, num_anchors)
 
-    # 模式。 0-从头训练，1-读取model_body继续训练（需要先运行脚本取得model_body）
+    # 模式。 0-从头训练，1-读取之前的模型继续训练（model_path可以是'yolov4.h5'、'./weights/step001000.h5'、'./weights/ep001-loss36.509-val_loss34.633.h5'这些。）
     pattern = 1
     save_best_only = False
     max_bbox_per_scale = 150

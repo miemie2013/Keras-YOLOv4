@@ -5,10 +5,7 @@
 
 6G的卡也可训练，前提是必须要冻结网络前部分的层。以下是检测效果：
 
-<p align="center">
-    <img width="100%" src="https://github.com/miemie2013/Keras-YOLOv4/blob/master/images/res/000000014038.jpg?raw=true" style="max-width:100%;">
-    </a>
-</p>
+![Example 0](images/res/000000014038.jpg)
 
 参考自https://github.com/miemie2013/Keras-DIOU-YOLOv3
 和https://github.com/Tianxiaomo/pytorch-YOLOv4
