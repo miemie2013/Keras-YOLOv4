@@ -320,48 +320,43 @@ def preprocess_true_boxes(bboxes, train_output_sizes, strides, num_classes, max_
     sbboxes, mbboxes, lbboxes = bboxes_xywh
     return label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes
 
-def generate_one_batch(annotation_lines, batch_size, anchors, num_classes, max_bbox_per_scale, pre_path, annotation_type):
-    n = len(annotation_lines)
-    i = 0
-    while True:
-        # 多尺度训练
-        train_input_sizes = [320, 352, 384, 416, 448, 480, 512, 544, 576, 608]
-        train_input_size = random.choice(train_input_sizes)
-        strides = np.array([8, 16, 32])
+def generate_one_batch(annotation_lines, step, batch_size, anchors, num_classes, max_bbox_per_scale, pre_path, annotation_type):
+    # 多尺度训练
+    train_input_sizes = [320, 352, 384, 416, 448, 480, 512, 544, 576, 608]
+    train_input_size = random.choice(train_input_sizes)
+    strides = np.array([8, 16, 32])
 
-        # 输出的网格数
-        train_output_sizes = train_input_size // strides
+    # 输出的网格数
+    train_output_sizes = train_input_size // strides
 
-        batch_image = np.zeros((batch_size, train_input_size, train_input_size, 3))
+    batch_image = np.zeros((batch_size, train_input_size, train_input_size, 3))
 
-        batch_label_sbbox = np.zeros((batch_size, train_output_sizes[0], train_output_sizes[0],
-                                      3, 5 + num_classes))
-        batch_label_mbbox = np.zeros((batch_size, train_output_sizes[1], train_output_sizes[1],
-                                      3, 5 + num_classes))
-        batch_label_lbbox = np.zeros((batch_size, train_output_sizes[2], train_output_sizes[2],
-                                      3, 5 + num_classes))
+    batch_label_sbbox = np.zeros((batch_size, train_output_sizes[0], train_output_sizes[0],
+                                  3, 5 + num_classes))
+    batch_label_mbbox = np.zeros((batch_size, train_output_sizes[1], train_output_sizes[1],
+                                  3, 5 + num_classes))
+    batch_label_lbbox = np.zeros((batch_size, train_output_sizes[2], train_output_sizes[2],
+                                  3, 5 + num_classes))
 
-        batch_sbboxes = np.zeros((batch_size, max_bbox_per_scale, 4))
-        batch_mbboxes = np.zeros((batch_size, max_bbox_per_scale, 4))
-        batch_lbboxes = np.zeros((batch_size, max_bbox_per_scale, 4))
+    batch_sbboxes = np.zeros((batch_size, max_bbox_per_scale, 4))
+    batch_mbboxes = np.zeros((batch_size, max_bbox_per_scale, 4))
+    batch_lbboxes = np.zeros((batch_size, max_bbox_per_scale, 4))
 
-        for num in range(batch_size):
-            if i == 0:
-                np.random.shuffle(annotation_lines)
+    batch = annotation_lines[step * batch_size:(step + 1) * batch_size]
 
-            image, bboxes, exist_boxes = parse_annotation(annotation_lines[i], train_input_size, annotation_type, pre_path)
-            label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = preprocess_true_boxes(bboxes, train_output_sizes, strides, num_classes, max_bbox_per_scale, anchors)
+    for num in range(batch_size):
+        image, bboxes, exist_boxes = parse_annotation(batch[num], train_input_size, annotation_type, pre_path)
+        label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = preprocess_true_boxes(bboxes, train_output_sizes, strides, num_classes, max_bbox_per_scale, anchors)
 
-            batch_image[num, :, :, :] = image
-            if exist_boxes:
-                batch_label_sbbox[num, :, :, :, :] = label_sbbox
-                batch_label_mbbox[num, :, :, :, :] = label_mbbox
-                batch_label_lbbox[num, :, :, :, :] = label_lbbox
-                batch_sbboxes[num, :, :] = sbboxes
-                batch_mbboxes[num, :, :] = mbboxes
-                batch_lbboxes[num, :, :] = lbboxes
-            i = (i + 1) % n
-        yield [batch_image, batch_label_sbbox, batch_label_mbbox, batch_label_lbbox, batch_sbboxes, batch_mbboxes, batch_lbboxes], np.zeros(batch_size)
+        batch_image[num, :, :, :] = image
+        if exist_boxes:
+            batch_label_sbbox[num, :, :, :, :] = label_sbbox
+            batch_label_mbbox[num, :, :, :, :] = label_mbbox
+            batch_label_lbbox[num, :, :, :, :] = label_lbbox
+            batch_sbboxes[num, :, :] = sbboxes
+            batch_mbboxes[num, :, :] = mbboxes
+            batch_lbboxes[num, :, :] = lbboxes
+    return [batch_image, batch_label_sbbox, batch_label_mbbox, batch_label_lbbox, batch_sbboxes, batch_mbboxes, batch_lbboxes], np.zeros(batch_size)
 
 if __name__ == '__main__':
     # train_path = 'annotation/voc2012_train.txt'
@@ -399,9 +394,9 @@ if __name__ == '__main__':
 
     # ========= 一些设置 =========
     # 每隔几步保存一次模型
-    save_iter = 10
+    save_iter = 1000
     # 每隔几步计算一次eval集的mAP
-    eval_iter = 50
+    eval_iter = 5000
     # 训练多少步
     max_iters = 800000
     # 步id，无需设置，会自动读。
@@ -413,7 +408,7 @@ if __name__ == '__main__':
     # input_shape = (320, 320)
     # input_shape = (416, 416)
     input_shape = (608, 608)
-
+    # 验证时的分数阈值和nms_iou阈值
     conf_thresh = 0.05
     nms_thresh = 0.45
 
@@ -470,50 +465,58 @@ if __name__ == '__main__':
     with open(train_path) as f:
         train_lines = f.readlines()
     num_train = len(train_lines)
-    epochs = 999999
-    # 可能会有强迫症觉得不爽，你想和进度条真正对上，但是那样的话改起来相当麻烦。
-    initial_epoch = int(iter_id * batch_size / num_train)
-
-
-    best_ap_list = [0.0, 0]  #[map, iter]
-    # 回调函数，保存与验证模型
-    def save_and_eval_model(batch, logs):
-        global iter_id
-        global best_ap_list
-        iter_id += 1
-        if iter_id % save_iter == 0:
-            model.save('./weights/step%.8d.h5' % iter_id)
-            path_dir = os.listdir('./weights')
-            steps = []
-            names = []
-            for name in path_dir:
-                if name[len(name) - 2:len(name)] == 'h5' and name[0:4] == 'step':
-                    step = int(name[4:12])
-                    steps.append(step)
-                    names.append(name)
-            if len(steps) > 10:
-                i = steps.index(min(steps))
-                os.remove('./weights/'+names[i])
-        if iter_id % eval_iter == 0:
-            box_ap = eval(_decode, images, eval_pre_path, anno_file)
-            ap = box_ap
-            if ap[0] > best_ap_list[0]:
-                best_ap_list[0] = ap[0]
-                best_ap_list[1] = iter_id
-                model.save('./weights/best_model.h5')
-        if iter_id == max_iters:
-            print('\nDone.')
-            exit(0)
 
     # 保存模型的目录
     if not os.path.exists('./weights'): os.mkdir('./weights')
 
     model.compile(loss={'yolo_loss': lambda y_true, y_pred: y_pred}, optimizer=keras.optimizers.Adam(lr=lr))
-    model.fit_generator(
-        generator=generate_one_batch(train_lines, batch_size, anchors, num_classes, max_bbox_per_scale, pre_path, 'train'),
-        steps_per_epoch=max(1, num_train // batch_size),
-        epochs=epochs,
-        initial_epoch=initial_epoch,
-        callbacks=[LambdaCallback(on_batch_end=save_and_eval_model)]
-    )
+
+
+    # 一轮的步数。丢弃最后几个样本。
+    train_steps = num_train // batch_size
+    best_ap_list = [0.0, 0]  #[map, iter]
+    while True:   # 无限个epoch
+        # 每个epoch之前洗乱
+        np.random.shuffle(train_lines)
+        for step in range(train_steps):
+            iter_id += 1
+            batch_xs, y_true = generate_one_batch(train_lines, step, batch_size, anchors, num_classes,
+                                                     max_bbox_per_scale, pre_path, 'train')
+            train_step_loss = model.train_on_batch(batch_xs, y_true)
+
+            # log
+            if iter_id % 20 == 0:
+                eta = 1
+                strs = 'iter: {}, loss: {:.6f}, eta: {}'.format(
+                    iter_id, train_step_loss, eta)
+                logger.info(strs)
+
+            # save
+            if iter_id % save_iter == 0:
+                model.save('./weights/step%.8d.h5' % iter_id)
+                path_dir = os.listdir('./weights')
+                steps = []
+                names = []
+                for name in path_dir:
+                    if name[len(name) - 2:len(name)] == 'h5' and name[0:4] == 'step':
+                        step = int(name[4:12])
+                        steps.append(step)
+                        names.append(name)
+                if len(steps) > 10:
+                    i = steps.index(min(steps))
+                    os.remove('./weights/'+names[i])
+
+            # eval
+            if iter_id % eval_iter == 0:
+                box_ap = eval(_decode, images, eval_pre_path, anno_file)
+                ap = box_ap
+                if ap[0] > best_ap_list[0]:
+                    best_ap_list[0] = ap[0]
+                    best_ap_list[1] = iter_id
+                    model.save('./weights/best_model.h5')
+
+            # exit
+            if iter_id == max_iters:
+                print('\nDone.')
+                exit(0)
 

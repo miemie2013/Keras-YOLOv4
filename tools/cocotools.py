@@ -118,7 +118,7 @@ def eval(_decode, images, eval_pre_path, anno_file):
         count += 1
         if count % 100 == 0:
             logger.info('Test iter {}'.format(count))
-            break
+            # break
     # 开始评测
     box_ap_stats = bbox_eval(anno_file)
     return box_ap_stats
