@@ -509,11 +509,16 @@ if __name__ == '__main__':
             # eval
             if iter_id % eval_iter == 0:
                 box_ap = eval(_decode, images, eval_pre_path, anno_file)
+                logger.info("box ap: %.3f" % (box_ap[0], ))
+
+                # 以box_ap作为标准
                 ap = box_ap
                 if ap[0] > best_ap_list[0]:
                     best_ap_list[0] = ap[0]
                     best_ap_list[1] = iter_id
                     model.save('./weights/best_model.h5')
+                logger.info("Best test ap: {}, in iter: {}".format(
+                    best_ap_list[0], best_ap_list[1]))
 
             # exit
             if iter_id == max_iters:
