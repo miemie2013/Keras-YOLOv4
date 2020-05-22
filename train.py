@@ -10,6 +10,7 @@
 
 import cv2
 import math
+import json
 import keras
 import random
 import numpy as np
@@ -19,6 +20,16 @@ import os
 import tensorflow as tf
 from keras import backend as K
 from model.yolov4 import YOLOv4
+from tools.cocotools import get_classes
+from model.decode_np import Decode
+from tools.cocotools import eval
+from tools.transform import random_horizontal_flip, random_crop, random_translate
+
+import logging
+FORMAT = '%(asctime)s-%(levelname)s: %(message)s'
+logging.basicConfig(level=logging.INFO, format=FORMAT)
+logger = logging.getLogger(__name__)
+
 
 # 显存分配
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -208,115 +219,35 @@ def yolo_loss(args, num_classes, iou_loss_thresh, anchors):
     loss_lbbox = loss_layer(conv_lbbox, pred_lbbox, label_lbbox, true_lbboxes, 32, num_classes, iou_loss_thresh)
     return loss_sbbox + loss_mbbox + loss_lbbox
 
-def get_classes(classes_path):
-    with open(classes_path) as f:
-        class_names = f.readlines()
-    class_names = [c.strip() for c in class_names]
-    return class_names
-
-def training_transform(height, width, output_height, output_width):
-    height_scale, width_scale = output_height / height, output_width / width
-    scale = min(height_scale, width_scale)
-    resize_height, resize_width = round(height * scale), round(width * scale)
-    pad_top = (output_height - resize_height) // 2
-    pad_left = (output_width - resize_width) // 2
-    A = np.float32([[scale, 0.0], [0.0, scale]])
-    B = np.float32([[pad_left], [pad_top]])
-    M = np.hstack([A, B])
-    return M, output_height, output_width
-
 def image_preporcess(image, target_size, gt_boxes=None):
     # 传入训练的图片是rgb格式
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     ih, iw = target_size
     h, w = image.shape[:2]
-    M, h_out, w_out = training_transform(h, w, ih, iw)
-    # 填充黑边缩放
-    letterbox = cv2.warpAffine(image, M, (w_out, h_out))
-    pimage = np.float32(letterbox) / 255.
+    interps = [   # 随机选一种插值方式
+        cv2.INTER_NEAREST,
+        cv2.INTER_LINEAR,
+        cv2.INTER_AREA,
+        cv2.INTER_CUBIC,
+        cv2.INTER_LANCZOS4,
+    ]
+    method = np.random.choice(interps)   # 随机选一种插值方式
+    scale_x = float(iw) / w
+    scale_y = float(ih) / h
+    image = cv2.resize(image, None, None, fx=scale_x, fy=scale_y, interpolation=method)
+
+    pimage = image.astype(np.float32) / 255.
     if gt_boxes is None:
         return pimage
     else:
-        scale = min(iw / w, ih / h)
-        nw, nh = int(scale * w), int(scale * h)
-        dw, dh = (iw - nw) // 2, (ih - nh) // 2
-        gt_boxes[:, [0, 2]] = gt_boxes[:, [0, 2]] * scale + dw
-        gt_boxes[:, [1, 3]] = gt_boxes[:, [1, 3]] * scale + dh
+        gt_boxes[:, [0, 2]] = gt_boxes[:, [0, 2]] * scale_x
+        gt_boxes[:, [1, 3]] = gt_boxes[:, [1, 3]] * scale_y
         return pimage, gt_boxes
-
-def random_fill(image, bboxes):
-    if random.random() < 0.5:
-        h, w, _ = image.shape
-        # 水平方向填充黑边，以训练小目标检测
-        if random.random() < 0.5:
-            dx = random.randint(int(0.5*w), int(1.5*w))
-            black_1 = np.zeros((h, dx, 3), dtype='uint8')
-            black_2 = np.zeros((h, dx, 3), dtype='uint8')
-            image = np.concatenate([black_1, image, black_2], axis=1)
-            bboxes[:, [0, 2]] += dx
-        # 垂直方向填充黑边，以训练小目标检测
-        else:
-            dy = random.randint(int(0.5*h), int(1.5*h))
-            black_1 = np.zeros((dy, w, 3), dtype='uint8')
-            black_2 = np.zeros((dy, w, 3), dtype='uint8')
-            image = np.concatenate([black_1, image, black_2], axis=0)
-            bboxes[:, [1, 3]] += dy
-    return image, bboxes
-
-def random_horizontal_flip(image, bboxes):
-    if random.random() < 0.5:
-        _, w, _ = image.shape
-        image = image[:, ::-1, :]
-        bboxes[:, [0,2]] = w - bboxes[:, [2,0]]
-    return image, bboxes
-
-def random_crop(image, bboxes):
-    if random.random() < 0.5:
-        h, w, _ = image.shape
-        max_bbox = np.concatenate([np.min(bboxes[:, 0:2], axis=0), np.max(bboxes[:, 2:4], axis=0)], axis=-1)
-
-        max_l_trans = max_bbox[0]
-        max_u_trans = max_bbox[1]
-        max_r_trans = w - max_bbox[2]
-        max_d_trans = h - max_bbox[3]
-
-        crop_xmin = max(0, int(max_bbox[0] - random.uniform(0, max_l_trans)))
-        crop_ymin = max(0, int(max_bbox[1] - random.uniform(0, max_u_trans)))
-        crop_xmax = max(w, int(max_bbox[2] + random.uniform(0, max_r_trans)))
-        crop_ymax = max(h, int(max_bbox[3] + random.uniform(0, max_d_trans)))
-
-        image = image[crop_ymin : crop_ymax, crop_xmin : crop_xmax]
-
-        bboxes[:, [0, 2]] = bboxes[:, [0, 2]] - crop_xmin
-        bboxes[:, [1, 3]] = bboxes[:, [1, 3]] - crop_ymin
-    return image, bboxes
-
-def random_translate(image, bboxes):
-    if random.random() < 0.5:
-        h, w, _ = image.shape
-        max_bbox = np.concatenate([np.min(bboxes[:, 0:2], axis=0), np.max(bboxes[:, 2:4], axis=0)], axis=-1)
-
-        max_l_trans = max_bbox[0]
-        max_u_trans = max_bbox[1]
-        max_r_trans = w - max_bbox[2]
-        max_d_trans = h - max_bbox[3]
-
-        tx = random.uniform(-(max_l_trans - 1), (max_r_trans - 1))
-        ty = random.uniform(-(max_u_trans - 1), (max_d_trans - 1))
-
-        M = np.array([[1, 0, tx], [0, 1, ty]])
-        image = cv2.warpAffine(image, M, (w, h))
-
-        bboxes[:, [0, 2]] = bboxes[:, [0, 2]] + tx
-        bboxes[:, [1, 3]] = bboxes[:, [1, 3]] + ty
-    return image, bboxes
 
 def parse_annotation(annotation, train_input_size, annotation_type, pre_path):
     line = annotation.split()
     image_path = pre_path + line[0]
-    if not os.path.exists(image_path):
-        raise KeyError("%s does not exist ... " %image_path)
-    image = np.array(cv2.imread(image_path))
+    image = cv2.imread(image_path)  # BGR mode, but need RGB mode
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # RGB mode
     # 没有标注物品，即每个格子都当作背景处理
     exist_boxes = True
     if len(line) == 1:
@@ -438,10 +369,19 @@ if __name__ == '__main__':
     # classes_path = 'data/voc_classes.txt'
 
     train_path = 'annotation/coco2017_train.txt'
-    val_path = 'annotation/coco2017_val.txt'
     classes_path = 'data/coco_classes.txt'
     # 数据集图片的相对路径
     pre_path = '../COCO/'
+
+    # 验证集图片的相对路径
+    eval_pre_path = '../COCO/val2017/'
+    anno_file = '../COCO/annotations/instances_val2017.json'
+    with open(anno_file, 'r', encoding='utf-8') as f2:
+        for line in f2:
+            line = line.strip()
+            dataset = json.loads(line)
+            images = dataset['images']
+
 
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
@@ -459,23 +399,32 @@ if __name__ == '__main__':
 
     # ========= 一些设置 =========
     # 每隔几步保存一次模型
-    save_iter = 1000
+    save_iter = 10
     # 每隔几步计算一次eval集的mAP
-    eval_iter = 5000
+    eval_iter = 50
     # 训练多少步
     max_iters = 800000
     # 步id，无需设置，会自动读。
     iter_id = 0
 
 
+    # 验证
+    # input_shape越大，精度会上升，但速度会下降。
+    # input_shape = (320, 320)
+    # input_shape = (416, 416)
+    input_shape = (608, 608)
+
+    conf_thresh = 0.05
+    nms_thresh = 0.45
+
 
     # 多尺度训练
     inputs = layers.Input(shape=(None, None, 3))
     model_body = YOLOv4(inputs, num_classes, num_anchors)
+    _decode = Decode(conf_thresh, nms_thresh, input_shape, model_body, class_names)
 
     # 模式。 0-从头训练，1-读取之前的模型继续训练（model_path可以是'yolov4.h5'、'./weights/step00001000.h5'这些。）
     pattern = 1
-    save_best_only = False
     max_bbox_per_scale = 150
     iou_loss_thresh = 0.7
     if pattern == 1:
@@ -517,21 +466,20 @@ if __name__ == '__main__':
     model.summary()
     # keras.utils.vis_utils.plot_model(model_body, to_file='yolov4.png', show_shapes=True)
 
-    # 验证集和训练集
+    # 训练集
     with open(train_path) as f:
         train_lines = f.readlines()
-    with open(val_path) as f:
-        val_lines = f.readlines()
     num_train = len(train_lines)
-    num_val = len(val_lines)
     epochs = 999999
     # 可能会有强迫症觉得不爽，你想和进度条真正对上，但是那样的话改起来相当麻烦。
     initial_epoch = int(iter_id * batch_size / num_train)
 
 
+    best_ap_list = [0.0, 0]  #[map, iter]
     # 回调函数，保存与验证模型
     def save_and_eval_model(batch, logs):
         global iter_id
+        global best_ap_list
         iter_id += 1
         if iter_id % save_iter == 0:
             model.save('./weights/step%.8d.h5' % iter_id)
@@ -547,7 +495,12 @@ if __name__ == '__main__':
                 i = steps.index(min(steps))
                 os.remove('./weights/'+names[i])
         if iter_id % eval_iter == 0:
-            pass
+            box_ap = eval(_decode, images, eval_pre_path, anno_file)
+            ap = box_ap
+            if ap[0] > best_ap_list[0]:
+                best_ap_list[0] = ap[0]
+                best_ap_list[1] = iter_id
+                model.save('./weights/best_model.h5')
         if iter_id == max_iters:
             print('\nDone.')
             exit(0)

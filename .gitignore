@@ -8,6 +8,7 @@
 __pycache__/
 .ipynb_checkpoints/
 
+/eval_results/
 /weights/
 /model/__pycache__/
 

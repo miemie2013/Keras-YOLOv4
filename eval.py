@@ -7,29 +7,17 @@
 #   Description : keras_yolov4
 #
 # ================================================================
-import cv2
-import os
-import time
-import tensorflow as tf
 import keras.layers as layers
 from tools.cocotools import get_classes
 from model.yolov4 import YOLOv4
 from model.decode_np import Decode
+import json
+from tools.cocotools import eval
 
-
-# 6G的卡，训练时如果要预测，则设置use_gpu = False，否则显存不足。
-use_gpu = False
-use_gpu = True
-
-# 显存分配。
-if use_gpu:
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-else:
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-from keras.backend.tensorflow_backend import set_session
-config = tf.ConfigProto()
-config.gpu_options.per_process_gpu_memory_fraction = 1.0
-set_session(tf.Session(config=config))
+import logging
+FORMAT = '%(asctime)s-%(levelname)s: %(message)s'
+logging.basicConfig(level=logging.INFO, format=FORMAT)
+logger = logging.getLogger(__name__)
 
 
 if __name__ == '__main__':
@@ -40,9 +28,17 @@ if __name__ == '__main__':
 
     # input_shape越大，精度会上升，但速度会下降。
     # input_shape = (320, 320)
-    input_shape = (416, 416)
-    # input_shape = (608, 608)
+    # input_shape = (416, 416)
+    input_shape = (608, 608)
 
+    # 验证集图片的相对路径
+    eval_pre_path = '../COCO/val2017/'
+    anno_file = '../COCO/annotations/instances_val2017.json'
+    with open(anno_file, 'r', encoding='utf-8') as f2:
+        for line in f2:
+            line = line.strip()
+            dataset = json.loads(line)
+            images = dataset['images']
 
     num_anchors = 3
     all_classes = get_classes(classes_path)
@@ -52,15 +48,5 @@ if __name__ == '__main__':
     yolo.load_weights(model_path, by_name=True)
 
     _decode = Decode(0.05, 0.45, input_shape, yolo, all_classes)
-
-    # detect images in test floder.
-    for (root, dirs, files) in os.walk('images/test'):
-        if files:
-            start = time.time()
-            for f in files:
-                path = os.path.join(root, f)
-                image = cv2.imread(path)
-                image, boxes, scores, classes = _decode.detect_image(image, draw_image = True)
-                cv2.imwrite('images/res/' + f, image)
-            print('total time: {0:.6f}s'.format(time.time() - start))
+    box_ap = eval(_decode, images, eval_pre_path, anno_file)
 

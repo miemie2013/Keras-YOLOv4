@@ -1,39 +1,29 @@
 # -*- coding: utf-8 -*-
-
 import random
 import colorsys
 import cv2
 import time
 import os
-import keras
 import numpy as np
-import keras.layers as layers
-from model.yolov4 import YOLOv4
 
 
 class Decode(object):
-    def __init__(self, obj_threshold, nms_threshold, input_shape, model_path, file_path):
+    def __init__(self, obj_threshold, nms_threshold, input_shape, _yolo, all_classes):
         self._t1 = obj_threshold
         self._t2 = nms_threshold
         self.input_shape = input_shape
-        self.all_classes = self.get_classes(file_path)
+        self.all_classes = all_classes
         self.num_classes = len(self.all_classes)
-
-        self.num_anchors = 3
-        inputs = layers.Input(shape=(None, None, 3))
-        self._yolo = YOLOv4(inputs, self.num_classes, self.num_anchors)
-        self._yolo.load_weights(model_path, by_name=True)
+        self._yolo = _yolo
 
     # 处理一张图片
-    def detect_image(self, image):
+    def detect_image(self, image, draw_image):
         pimage = self.process_image(np.copy(image))
 
-        start = time.time()
         boxes, scores, classes = self.predict(pimage, image.shape)
-        print('time: {0:.6f}s'.format(time.time() - start))
-        if boxes is not None:
+        if boxes is not None and draw_image:
             self.draw(image, boxes, scores, classes)
-        return image
+        return image, boxes, scores, classes
 
     # 处理视频
     def detect_video(self, video):
@@ -67,13 +57,6 @@ class Decode(object):
         vout.release()
         camera.release()
 
-    def get_classes(self, file):
-        with open(file) as f:
-            class_names = f.readlines()
-        class_names = [c.strip() for c in class_names]
-
-        return class_names
-
     def draw(self, image, boxes, scores, classes):
         image_h, image_w, _ = image.shape
         # 定义颜色
@@ -101,39 +84,24 @@ class Decode(object):
             cv2.putText(image, bbox_mess, (left, top - 2), cv2.FONT_HERSHEY_SIMPLEX,
                         0.5, (0, 0, 0), 1, lineType=cv2.LINE_AA)
 
-    def training_transform(self, height, width, output_height, output_width):
-        height_scale, width_scale = output_height / height, output_width / width
-        scale = min(height_scale, width_scale)
-        resize_height, resize_width = round(height * scale), round(width * scale)
-        pad_top = (output_height - resize_height) // 2
-        pad_left = (output_width - resize_width) // 2
-        A = np.float32([[scale, 0.0], [0.0, scale]])
-        B = np.float32([[pad_left], [pad_top]])
-        M = np.hstack([A, B])
-        return M, output_height, output_width
-
     def process_image(self, img):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         h, w = img.shape[:2]
-        M, h_out, w_out = self.training_transform(h, w, self.input_shape[0], self.input_shape[1])
-        # 填充黑边缩放
-        letterbox = cv2.warpAffine(img, M, (w_out, h_out))
-        pimage = np.float32(letterbox) / 255.
+        scale_x = float(self.input_shape[1]) / w
+        scale_y = float(self.input_shape[0]) / h
+        img = cv2.resize(img, None, None, fx=scale_x, fy=scale_y, interpolation=cv2.INTER_CUBIC)
+        pimage = img.astype(np.float32) / 255.
         pimage = np.expand_dims(pimage, axis=0)
         return pimage
 
     def predict(self, image, shape):
-        start = time.time()
         outs = self._yolo.predict(image)
-        print('\ndarknet time: {0:.6f}s'.format(time.time() - start))
 
         # numpy后处理
-        start = time.time()
         a1 = np.reshape(outs[0], (1, self.input_shape[0]//32, self.input_shape[1]//32, 3, 5+self.num_classes))
         a2 = np.reshape(outs[1], (1, self.input_shape[0]//16, self.input_shape[1]//16, 3, 5+self.num_classes))
         a3 = np.reshape(outs[2], (1, self.input_shape[0]//8, self.input_shape[1]//8, 3, 5+self.num_classes))
         boxes, scores, classes = self._yolo_out([a1, a2, a3], shape)
-        print('post process time: {0:.6f}s'.format(time.time() - start))
 
         return boxes, scores, classes
 
@@ -167,7 +135,7 @@ class Decode(object):
         box_xy += grid
         box_xy /= (grid_w, grid_h)
         box_wh /= self.input_shape
-        box_xy -= (box_wh / 2.)
+        box_xy -= (box_wh / 2.)   # 坐标格式是左上角xy加矩形宽高wh，xywh都除以图片边长归一化了。
         boxes = np.concatenate((box_xy, box_wh), axis=-1)
 
         return boxes, box_confidence, box_class_probs
@@ -234,18 +202,11 @@ class Decode(object):
         classes = np.concatenate(classes)
         scores = np.concatenate(scores)
 
+        # boxes坐标格式是左上角xy加矩形宽高wh，xywh都除以图片边长归一化了。
         # Scale boxes back to original image shape.
-        h, w = self.input_shape
-        iw, ih = shape[1], shape[0]
-        scale = min(w / iw, h / ih)
-        nw = int(iw * scale)
-        nh = int(ih * scale)
-        dx = (w - nw) / (2*scale)
-        dy = (h - nh) / (2*scale)
-        sc = max(iw, ih)
-        image_dims = [sc, sc, sc, sc]
-        dd = [dx, dy, 0, 0]
-        boxes = boxes * image_dims - dd
+        w, h = shape[1], shape[0]
+        image_dims = [w, h, w, h]
+        boxes = boxes * image_dims
 
         nboxes, nclasses, nscores = [], [], []
         for c in set(classes):
