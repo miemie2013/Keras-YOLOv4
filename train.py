@@ -12,6 +12,7 @@ from collections import deque
 import math
 import json
 import time
+import threading
 import datetime
 import keras
 import random
@@ -321,6 +322,24 @@ def preprocess_true_boxes(bboxes, train_output_sizes, strides, num_classes, max_
     sbboxes, mbboxes, lbboxes = bboxes_xywh
     return label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes
 
+def multi_thread_read(batch, num, train_input_size, annotation_type, train_output_sizes, strides, num_classes,
+                      max_bbox_per_scale, anchors, batch_image,
+                      batch_label_sbbox, batch_label_mbbox, batch_label_lbbox,
+                      batch_sbboxes, batch_mbboxes, batch_lbboxes, pre_path):
+    image, bboxes, exist_boxes = parse_annotation(batch[num], train_input_size, annotation_type, pre_path)
+    label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = preprocess_true_boxes(bboxes, train_output_sizes,
+                                                                                             strides, num_classes,
+                                                                                             max_bbox_per_scale,
+                                                                                             anchors)
+    batch_image[num, :, :, :] = image
+    if exist_boxes:
+        batch_label_sbbox[num, :, :, :, :] = label_sbbox
+        batch_label_mbbox[num, :, :, :, :] = label_mbbox
+        batch_label_lbbox[num, :, :, :, :] = label_lbbox
+        batch_sbboxes[num, :, :] = sbboxes
+        batch_mbboxes[num, :, :] = mbboxes
+        batch_lbboxes[num, :, :] = lbboxes
+
 def generate_one_batch(annotation_lines, step, batch_size, anchors, num_classes, max_bbox_per_scale, pre_path, annotation_type):
     # 多尺度训练
     train_input_sizes = [320, 352, 384, 416, 448, 480, 512, 544, 576, 608]
@@ -345,19 +364,36 @@ def generate_one_batch(annotation_lines, step, batch_size, anchors, num_classes,
 
     batch = annotation_lines[step * batch_size:(step + 1) * batch_size]
 
-    for num in range(batch_size):
-        image, bboxes, exist_boxes = parse_annotation(batch[num], train_input_size, annotation_type, pre_path)
-        label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = preprocess_true_boxes(bboxes, train_output_sizes, strides, num_classes, max_bbox_per_scale, anchors)
+    # 单线程
+    # for num in range(batch_size):
+    #     image, bboxes, exist_boxes = parse_annotation(batch[num], train_input_size, annotation_type, pre_path)
+    #     label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = preprocess_true_boxes(bboxes, train_output_sizes, strides, num_classes, max_bbox_per_scale, anchors)
+    #
+    #     batch_image[num, :, :, :] = image
+    #     if exist_boxes:
+    #         batch_label_sbbox[num, :, :, :, :] = label_sbbox
+    #         batch_label_mbbox[num, :, :, :, :] = label_mbbox
+    #         batch_label_lbbox[num, :, :, :, :] = label_lbbox
+    #         batch_sbboxes[num, :, :] = sbboxes
+    #         batch_mbboxes[num, :, :] = mbboxes
+    #         batch_lbboxes[num, :, :] = lbboxes
 
-        batch_image[num, :, :, :] = image
-        if exist_boxes:
-            batch_label_sbbox[num, :, :, :, :] = label_sbbox
-            batch_label_mbbox[num, :, :, :, :] = label_mbbox
-            batch_label_lbbox[num, :, :, :, :] = label_lbbox
-            batch_sbboxes[num, :, :] = sbboxes
-            batch_mbboxes[num, :, :] = mbboxes
-            batch_lbboxes[num, :, :] = lbboxes
+    # 多线程
+    threads = []
+    for num in range(batch_size):
+        t = threading.Thread(target=multi_thread_read, args=(
+            batch, num, train_input_size, annotation_type, train_output_sizes, strides, num_classes, max_bbox_per_scale,
+            anchors, batch_image,
+            batch_label_sbbox, batch_label_mbbox, batch_label_lbbox,
+            batch_sbboxes, batch_mbboxes, batch_lbboxes, pre_path))
+        threads.append(t)
+        t.start()
+    # 等待所有线程任务结束。
+    for t in threads:
+        t.join()
+
     return [batch_image, batch_label_sbbox, batch_label_mbbox, batch_label_lbbox, batch_sbboxes, batch_mbboxes, batch_lbboxes], np.zeros(batch_size)
+
 
 if __name__ == '__main__':
     # train_path = 'annotation/voc2012_train.txt'
