@@ -7,15 +7,16 @@
 #   Description : keras_yolov4
 #
 # ================================================================
-
 import cv2
+from collections import deque
 import math
 import json
+import time
+import datetime
 import keras
 import random
 import numpy as np
 import keras.layers as layers
-from keras.callbacks import ModelCheckpoint, LambdaCallback
 import os
 import tensorflow as tf
 from keras import backend as K
@@ -472,6 +473,10 @@ if __name__ == '__main__':
     model.compile(loss={'yolo_loss': lambda y_true, y_pred: y_pred}, optimizer=keras.optimizers.Adam(lr=lr))
 
 
+    time_stat = deque(maxlen=20)
+    start_time = time.time()
+    end_time = time.time()
+
     # 一轮的步数。丢弃最后几个样本。
     train_steps = num_train // batch_size
     best_ap_list = [0.0, 0]  #[map, iter]
@@ -480,14 +485,23 @@ if __name__ == '__main__':
         np.random.shuffle(train_lines)
         for step in range(train_steps):
             iter_id += 1
+
+            # 估计剩余时间
+            start_time = end_time
+            end_time = time.time()
+            time_stat.append(end_time - start_time)
+            time_cost = np.mean(time_stat)
+            eta_sec = (max_iters - iter_id) * time_cost
+            eta = str(datetime.timedelta(seconds=int(eta_sec)))
+
+            # train
             batch_xs, y_true = generate_one_batch(train_lines, step, batch_size, anchors, num_classes,
                                                      max_bbox_per_scale, pre_path, 'train')
             train_step_loss = model.train_on_batch(batch_xs, y_true)
 
             # log
             if iter_id % 20 == 0:
-                eta = 1
-                strs = 'iter: {}, loss: {:.6f}, eta: {}'.format(
+                strs = 'Train iter: {}, loss: {:.6f}, eta: {}'.format(
                     iter_id, train_step_loss, eta)
                 logger.info(strs)
 
