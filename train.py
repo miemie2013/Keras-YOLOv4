@@ -507,7 +507,8 @@ if __name__ == '__main__':
 
             # save
             if iter_id % save_iter == 0:
-                model.save('./weights/step%.8d.h5' % iter_id)
+                save_path = './weights/step%.8d.h5' % iter_id
+                model.save(save_path)
                 path_dir = os.listdir('./weights')
                 steps = []
                 names = []
@@ -519,6 +520,7 @@ if __name__ == '__main__':
                 if len(steps) > 10:
                     i = steps.index(min(steps))
                     os.remove('./weights/'+names[i])
+                logger.info('Save model to {}.'.format(save_path))
 
             # eval
             if iter_id % eval_iter == 0:
