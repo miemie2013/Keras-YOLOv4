@@ -11,11 +11,11 @@
 和https://github.com/Tianxiaomo/pytorch-YOLOv4
 
 ## 传送门
-3款yolov3，总有一款适合你。paddlepaddle版，可以使用百度Tesla V100的算力。Pytorch，学术方面最火的深度学习框架，动态图，不必开sess，调试最方便。Keras，对新手友好的深度学习框架。
+yolov3魔改成yolact：https://github.com/miemie2013/yolact
 
-Pytorch兄弟版：https://github.com/miemie2013/Pytorch-DIOU-YOLOv3
+Pytorch版：https://github.com/miemie2013/Pytorch-DIOU-YOLOv3
 
-PaddlePaddle姐妹版：https://github.com/miemie2013/Paddle-DIOU-YOLOv3
+PaddlePaddle版：https://github.com/miemie2013/Paddle-DIOU-YOLOv3
 
 ## 更新日记
 
@@ -27,63 +27,35 @@ PaddlePaddle姐妹版：https://github.com/miemie2013/Paddle-DIOU-YOLOv3
 
 ## 需要补充
 
-验证的代码；后处理改为用张量操作实现；更多调优。
+后处理改为用张量操作实现；更多调优。
 
 ## 文件下载
 一个没有训练充分的模型：链接：https://pan.baidu.com/s/1TQ1AGfylIqjAhDNaoWW9mA 
 提取码：2aot
 
-## 仓库文件介绍
-
-```
-train.py            训练yolov4。
-1_lambda2model.py   将训练模型中yolov4的所有部分提取出来。
-1_pytorch2keras.py  将Tianxiaomo的pytorch模型导出为keras模型。
-demo.py             用keras模型进行预测。
-
-
-annotation/  存放训练集、验证集的注解文件。
-data/        存放数据集物品类别名称文件（一行一个类别名称），类别名称最好不要有空格、斜杠、反斜杠，不然后面计算mAP时会报错。
-images/      用于测试的图片，放在子目录test/下。预测输出在子目录res/下。
-mAP/         对模型评估时产生的中间临时文件。
-model/       存放yolov4核心代码。
-```
-
 ## 训练
-使用train.py进行训练。train.py不支持命令行参数设置使用的数据集、超参数。
-而是通过修改train.py源代码来进行更换数据集、更改超参数（减少冗余代码）。
-1.如果你要使用自己的数据集训练，那么请修改
-```
-train_path = 'annotation/coco2017_train.txt'
-val_path = 'annotation/coco2017_val.txt'
-classes_path = 'data/coco_classes.txt'
-```
+下载我从Tianxiaomo的仓库保存下来的pytorch模型yolov4.pt
+链接：https://pan.baidu.com/s/152poRrQW9Na_C8rkhNEh3g
+提取码：09ou
 
-注解文件的格式如下：
+将它放在项目根目录下。然后运行1_pytorch2keras.py得到一个yolov4.h5，它也位于根目录下。
+运行train.py进行训练。train.py不支持命令行参数设置使用的数据集、超参数。
+而是通过修改train.py源代码来进行更换数据集、更改超参数（减少冗余代码）。
+
+数据集注解文件的格式如下：
 ```
 xxx/xxx.jpg 18.19,6.32,424.13,421.83,20 323.86,2.65,640.0,421.94,20 
 xxx/xxx.jpg 48,240,195,371,11 8,12,352,498,14
 # image_path x_min, y_min, x_max, y_max, class_id  x_min, y_min ,..., class_id 
 # make sure that x_max < width and y_max < height
 ```
-和YunYang1994的注解文件格式是完全一样的，这里再次致敬大佬！
 
-2.本仓库有pattern=0、pattern=1、pattern=2这3种训练模式。
-0-从头训练，1-读取model_body继续训练（包括解冻，但需要先运行1_lambda2model.py脚本取得model_body），2-读取coco预训练模型训练
-你只需要修改pattern的值即可指定训练模式。
-然后在这3种模式的if-else分支下，你再指定批大小batch_size、学习率lr等超参数。
-
-3.如果你决定从头训练一个模型（即pattern=0），而且你的显卡显存比较小，比如说只有6G。
-又或者说你想训练一个小模型，因为你的数据集比较小。
-那么你可以设置initial_filters为一个比较小的值，比如说8。
-initial_filters会影响到后面的卷积层的卷积核个数（除了最后面3个卷积层的卷积核个数不受影响）。
-yolov3的initial_filters默认是32，你调小initial_filters会使得模型变小，运算量减少，适合在小数据集上训练。
-
+或者你不下载yolov4.pt，而是下载上面提到的训练不充分的yolov4.h5继续训练也可以。
+追求更高的精度，你需要把冻结层的代码删除，也就是train.py中ly.trainable = False那一部分。但是需要你有一块高显存的显卡。
+训练时默认每5000步计算一次验证集的mAP。
 
 ## 评估
-训练完成后，用1_lambda2model.py将训练模型中yolov4的所有部分提取出来。
-运行evaluate_kr.py对keras模型（1_lambda2model.py提取出来的模型）评估，跑完这个脚本后需要再跑mAP/main.py进行mAP的计算。
-
+训练时默认每5000步计算一次验证集的mAP。或者运行eval.py评估指定模型的mAP。
 
 ## 预测
 运行demo.py。
