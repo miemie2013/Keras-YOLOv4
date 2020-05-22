@@ -520,7 +520,7 @@ if __name__ == '__main__':
                 if len(steps) > 10:
                     i = steps.index(min(steps))
                     os.remove('./weights/'+names[i])
-                logger.info('Save model to {}.'.format(save_path))
+                logger.info('Save model to {}'.format(save_path))
 
             # eval
             if iter_id % eval_iter == 0:
@@ -538,6 +538,6 @@ if __name__ == '__main__':
 
             # exit
             if iter_id == max_iters:
-                print('\nDone.')
+                logger.info('Done.')
                 exit(0)
 
