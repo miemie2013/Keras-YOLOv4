@@ -31,6 +31,12 @@ if __name__ == '__main__':
     # input_shape = (416, 416)
     input_shape = (608, 608)
 
+    # 是否画出验证集图片
+    # draw_image = True
+    draw_image = False
+    # 验证时的批大小
+    eval_batch_size = 4
+
     # 验证集图片的相对路径
     eval_pre_path = '../COCO/val2017/'
     anno_file = '../COCO/annotations/instances_val2017.json'
@@ -48,5 +54,5 @@ if __name__ == '__main__':
     yolo.load_weights(model_path, by_name=True)
 
     _decode = Decode(0.05, 0.45, input_shape, yolo, all_classes)
-    box_ap = eval(_decode, images, eval_pre_path, anno_file)
+    box_ap = eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image)
 

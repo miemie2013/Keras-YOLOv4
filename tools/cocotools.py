@@ -79,45 +79,66 @@ def bbox_eval(anno_file):
     sys.stdout.flush()
     return map_stats
 
-def eval(_decode, images, eval_pre_path, anno_file):
+def eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image):
     # 8G内存的电脑并不能装下所有结果，所以把结果写进文件里。
     if os.path.exists('eval_results/bbox/'): shutil.rmtree('eval_results/bbox/')
+    if os.path.exists('eval_results/images/'): shutil.rmtree('eval_results/images/')
     if not os.path.exists('eval_results/'): os.mkdir('eval_results/')
     os.mkdir('eval_results/bbox/')
+    os.mkdir('eval_results/images/')
 
     count = 0
-    for im in images:
+    n = len(images)
+    batch_im_id = []
+    batch_img = []
+    for i, im in enumerate(images):
         im_id = im['id']
         file_name = im['file_name']
         image = cv2.imread(eval_pre_path + file_name)
-        image, boxes, scores, classes = _decode.detect_image(image, draw_image=False)
-        if boxes is not None:
-            n = len(boxes)
-            bbox_data = []
-            for p in range(n):
-                clsid = classes[p]
-                score = scores[p]
-                xmin, ymin, xmax, ymax = boxes[p]
-                catid = (clsid2catid[int(clsid)])
-                w = xmax - xmin + 1
-                h = ymax - ymin + 1
+        if i % eval_batch_size == 0:
+            batch_im_id = []
+            batch_img = []
+        batch_im_id.append(im_id)
+        batch_img.append(image)
 
-                bbox = [xmin, ymin, w, h]
-                # Round to the nearest 10th to avoid huge file sizes, as COCO suggests
-                bbox = [round(float(x) * 10) / 10 for x in bbox]
-                bbox_res = {
-                    'image_id': im_id,
-                    'category_id': catid,
-                    'bbox': bbox,
-                    'score': float(score)
-                }
-                bbox_data.append(bbox_res)
-            path = 'eval_results/bbox/%.12d.json' % im_id
-            with open(path, 'w') as f:
-                json.dump(bbox_data, f)
-        count += 1
-        if count % 100 == 0:
-            logger.info('Test iter {}'.format(count))
+        # 收集够一个batch的图片
+        if i != n - 1 and len(batch_img) != eval_batch_size:
+            continue
+
+        result_image, result_boxes, result_scores, result_classes = _decode.detect_batch(batch_img, draw_image=draw_image)
+        k = 0
+        for image, boxes, scores, classes in zip(result_image, result_boxes, result_scores, result_classes):
+            if boxes is not None:
+                im_id = batch_im_id[k]
+                n = len(boxes)
+                bbox_data = []
+                for p in range(n):
+                    clsid = classes[p]
+                    score = scores[p]
+                    xmin, ymin, xmax, ymax = boxes[p]
+                    catid = (clsid2catid[int(clsid)])
+                    w = xmax - xmin + 1
+                    h = ymax - ymin + 1
+
+                    bbox = [xmin, ymin, w, h]
+                    # Round to the nearest 10th to avoid huge file sizes, as COCO suggests
+                    bbox = [round(float(x) * 10) / 10 for x in bbox]
+                    bbox_res = {
+                        'image_id': im_id,
+                        'category_id': catid,
+                        'bbox': bbox,
+                        'score': float(score)
+                    }
+                    bbox_data.append(bbox_res)
+                path = 'eval_results/bbox/%.12d.json' % im_id
+                if draw_image:
+                    cv2.imwrite('eval_results/images/%.12d.jpg' % im_id, image)
+                with open(path, 'w') as f:
+                    json.dump(bbox_data, f)
+            count += 1
+            k += 1
+            if count % 100 == 0:
+                logger.info('Test iter {}'.format(count))
     # 开始评测
     box_ap_stats = bbox_eval(anno_file)
     return box_ap_stats

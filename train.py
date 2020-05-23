@@ -452,6 +452,10 @@ if __name__ == '__main__':
     # 验证时的分数阈值和nms_iou阈值
     conf_thresh = 0.05
     nms_thresh = 0.45
+    # 是否画出验证集图片
+    draw_image = False
+    # 验证时的批大小
+    eval_batch_size = 4
 
 
     # 多尺度训练
@@ -564,7 +568,7 @@ if __name__ == '__main__':
 
             # eval
             if iter_id % eval_iter == 0:
-                box_ap = eval(_decode, images, eval_pre_path, anno_file)
+                box_ap = eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image)
                 logger.info("box ap: %.3f" % (box_ap[0], ))
 
                 # 以box_ap作为标准
