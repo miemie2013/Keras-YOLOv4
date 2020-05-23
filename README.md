@@ -30,8 +30,27 @@ PaddlePaddle版：https://github.com/miemie2013/Paddle-DIOU-YOLOv3
 后处理改为用张量操作实现；更多调优。
 
 ## 文件下载
-一个没有训练充分的模型：链接：https://pan.baidu.com/s/1TQ1AGfylIqjAhDNaoWW9mA 
-提取码：2aot
+一个没有训练充分的模型step00040000.h5，训练了40000步，mAP=0.323，
+
+链接：https://pan.baidu.com/s/1bsu_FJ72sdiYaZRjL7h9iQ 
+提取码：g1y1
+
+下载好之后，运行eval.py得到该模型的mAP=0.323（input_shape = (608, 608)，分数阈值=0.05，nms阈值=0.45的情况下）：
+```
+Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.323
+Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.540
+Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.351
+Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.171
+Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.347
+Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.444
+Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.260
+Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.393
+Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.406
+Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.224
+Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.432
+Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.538
+```
+
 
 ## 训练
 下载我从Tianxiaomo的仓库保存下来的pytorch模型yolov4.pt
@@ -50,7 +69,7 @@ xxx/xxx.jpg 48,240,195,371,11 8,12,352,498,14
 # make sure that x_max < width and y_max < height
 ```
 
-或者你不下载yolov4.pt，而是下载上面提到的训练不充分的yolov4.h5继续训练也可以。
+或者你不下载yolov4.pt，而是下载上面提到的训练不充分的step00040000.h5继续训练也可以。
 追求更高的精度，你需要把冻结层的代码删除，也就是train.py中ly.trainable = False那一部分。但是需要你有一块高显存的显卡。
 训练时默认每5000步计算一次验证集的mAP。
 
