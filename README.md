@@ -30,7 +30,7 @@ PaddlePaddle版：https://github.com/miemie2013/Paddle-DIOU-YOLOv3
 后处理改为用张量操作实现；更多调优。
 
 ## 文件下载
-一个没有训练充分的模型step00040000.h5，训练了40000步，mAP=0.323，
+一个没有训练充分的模型step00040000.h5，用6G的卡训练，冻结了conv2d_86之前的层，训练了40000步，mAP=0.323，
 
 链接：https://pan.baidu.com/s/1bsu_FJ72sdiYaZRjL7h9iQ 
 提取码：g1y1
@@ -50,6 +50,7 @@ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.224
 Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.432
 Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.538
 ```
+追求更高的精度，你需要把冻结层的代码删除，也就是train.py中ly.trainable = False那一部分。但是需要你有一块高显存的显卡。
 
 
 ## 训练
