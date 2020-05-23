@@ -178,8 +178,7 @@ def loss_layer(conv, pred, label, bboxes, stride, num_class, iou_loss_thresh):
     conf_loss = tf.reduce_mean(tf.reduce_sum(conf_loss, axis=[1, 2, 3, 4]))  # 每个样本单独计算自己的conf_loss，再求平均值
     prob_loss = tf.reduce_mean(tf.reduce_sum(prob_loss, axis=[1, 2, 3, 4]))  # 每个样本单独计算自己的prob_loss，再求平均值
 
-    return ciou_loss + conf_loss + prob_loss
-    # return ciou_loss
+    return ciou_loss, conf_loss, prob_loss
 
 def decode(conv_output, anchors, stride, num_class):
     conv_shape       = tf.shape(conv_output)
@@ -216,10 +215,14 @@ def yolo_loss(args, num_classes, iou_loss_thresh, anchors):
     pred_sbbox = decode(conv_sbbox, anchors[0], 8, num_classes)
     pred_mbbox = decode(conv_mbbox, anchors[1], 16, num_classes)
     pred_lbbox = decode(conv_lbbox, anchors[2], 32, num_classes)
-    loss_sbbox = loss_layer(conv_sbbox, pred_sbbox, label_sbbox, true_sbboxes, 8, num_classes, iou_loss_thresh)
-    loss_mbbox = loss_layer(conv_mbbox, pred_mbbox, label_mbbox, true_mbboxes, 16, num_classes, iou_loss_thresh)
-    loss_lbbox = loss_layer(conv_lbbox, pred_lbbox, label_lbbox, true_lbboxes, 32, num_classes, iou_loss_thresh)
-    return loss_sbbox + loss_mbbox + loss_lbbox
+    sbbox_ciou_loss, sbbox_conf_loss, sbbox_prob_loss = loss_layer(conv_sbbox, pred_sbbox, label_sbbox, true_sbboxes, 8, num_classes, iou_loss_thresh)
+    mbbox_ciou_loss, mbbox_conf_loss, mbbox_prob_loss = loss_layer(conv_mbbox, pred_mbbox, label_mbbox, true_mbboxes, 16, num_classes, iou_loss_thresh)
+    lbbox_ciou_loss, lbbox_conf_loss, lbbox_prob_loss = loss_layer(conv_lbbox, pred_lbbox, label_lbbox, true_lbboxes, 32, num_classes, iou_loss_thresh)
+
+    ciou_loss = sbbox_ciou_loss + mbbox_ciou_loss + lbbox_ciou_loss
+    conf_loss = sbbox_conf_loss + mbbox_conf_loss + lbbox_conf_loss
+    prob_loss = sbbox_prob_loss + mbbox_prob_loss + lbbox_prob_loss
+    return [ciou_loss, conf_loss, prob_loss]
 
 def image_preporcess(image, target_size, gt_boxes=None):
     # 传入训练的图片是rgb格式
@@ -392,7 +395,8 @@ def generate_one_batch(annotation_lines, step, batch_size, anchors, num_classes,
     for t in threads:
         t.join()
 
-    return [batch_image, batch_label_sbbox, batch_label_mbbox, batch_label_lbbox, batch_sbboxes, batch_mbboxes, batch_lbboxes], np.zeros(batch_size)
+    return [batch_image, batch_label_sbbox, batch_label_mbbox, batch_label_lbbox, batch_sbboxes, batch_mbboxes, batch_lbboxes], \
+           [np.zeros(batch_size), np.zeros(batch_size), np.zeros(batch_size)]
 
 
 if __name__ == '__main__':
@@ -491,10 +495,10 @@ if __name__ == '__main__':
         layers.Input(name='input_6', shape=(max_bbox_per_scale, 4)),             # true_mbboxes
         layers.Input(name='input_7', shape=(max_bbox_per_scale, 4))              # true_lbboxes
     ]
-    model_loss = layers.Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
+    loss_list = layers.Lambda(yolo_loss, name='yolo_loss',
                            arguments={'num_classes': num_classes, 'iou_loss_thresh': iou_loss_thresh,
                                       'anchors': anchors})([*model_body.output, *y_true])
-    model = keras.models.Model([model_body.input, *y_true], model_loss)
+    model = keras.models.Model([model_body.input, *y_true], loss_list)
     model.summary()
     # keras.utils.vis_utils.plot_model(model_body, to_file='yolov4.png', show_shapes=True)
 
@@ -533,12 +537,12 @@ if __name__ == '__main__':
             # train
             batch_xs, y_true = generate_one_batch(train_lines, step, batch_size, anchors, num_classes,
                                                      max_bbox_per_scale, pre_path, 'train')
-            train_step_loss = model.train_on_batch(batch_xs, y_true)
+            losses = model.train_on_batch(batch_xs, y_true)
 
             # log
             if iter_id % 20 == 0:
-                strs = 'Train iter: {}, loss: {:.6f}, eta: {}'.format(
-                    iter_id, train_step_loss, eta)
+                strs = 'Train iter: {}, all_loss: {:.6f}, ciou_loss: {:.6f}, conf_loss: {:.6f}, prob_loss: {:.6f}, eta: {}'.format(
+                    iter_id, losses[0], losses[1], losses[2], losses[3], eta)
                 logger.info(strs)
 
             # save
