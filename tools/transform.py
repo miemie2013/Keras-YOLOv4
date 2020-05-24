@@ -77,3 +77,4 @@ def random_translate(image, bboxes):
         bboxes[:, [0, 2]] = bboxes[:, [0, 2]] + tx
         bboxes[:, [1, 3]] = bboxes[:, [1, 3]] + ty
     return image, bboxes
+
