@@ -82,10 +82,12 @@ def bbox_eval(anno_file):
 def eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image):
     # 8G内存的电脑并不能装下所有结果，所以把结果写进文件里。
     if os.path.exists('eval_results/bbox/'): shutil.rmtree('eval_results/bbox/')
-    if os.path.exists('eval_results/images/'): shutil.rmtree('eval_results/images/')
+    if draw_image:
+        if os.path.exists('eval_results/images/'): shutil.rmtree('eval_results/images/')
     if not os.path.exists('eval_results/'): os.mkdir('eval_results/')
     os.mkdir('eval_results/bbox/')
-    os.mkdir('eval_results/images/')
+    if draw_image:
+        os.mkdir('eval_results/images/')
 
     count = 0
     n = len(images)
