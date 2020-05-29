@@ -52,6 +52,10 @@ if __name__ == '__main__':
     input_shape = (416, 416)
     # input_shape = (608, 608)
 
+    # 验证时的分数阈值和nms_iou阈值
+    conf_thresh = 0.05
+    nms_thresh = 0.45
+
     # 是否给图片画框。不画可以提速。读图片、后处理还可以继续优化。
     draw_image = True
     # draw_image = False
@@ -64,7 +68,7 @@ if __name__ == '__main__':
     yolo = YOLOv4(inputs, num_classes, num_anchors)
     yolo.load_weights(model_path, by_name=True)
 
-    _decode = Decode(0.05, 0.45, input_shape, yolo, all_classes)
+    _decode = Decode(conf_thresh, nms_thresh, input_shape, yolo, all_classes)
 
 
     time_stat = deque(maxlen=20)

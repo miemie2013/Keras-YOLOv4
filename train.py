@@ -450,7 +450,7 @@ if __name__ == '__main__':
     # input_shape = (416, 416)
     input_shape = (608, 608)
     # 验证时的分数阈值和nms_iou阈值
-    conf_thresh = 0.005
+    conf_thresh = 0.001
     nms_thresh = 0.45
     # 是否画出验证集图片
     draw_image = False

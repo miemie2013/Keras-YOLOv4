@@ -30,9 +30,10 @@ if __name__ == '__main__':
     # input_shape = (320, 320)
     # input_shape = (416, 416)
     input_shape = (608, 608)
-
+    # 验证时的分数阈值和nms_iou阈值
+    conf_thresh = 0.001
+    nms_thresh = 0.45
     # 是否画出验证集图片
-    # draw_image = True
     draw_image = False
     # 验证时的批大小
     eval_batch_size = 4
@@ -53,6 +54,6 @@ if __name__ == '__main__':
     yolo = YOLOv4(inputs, num_classes, num_anchors)
     yolo.load_weights(model_path, by_name=True)
 
-    _decode = Decode(0.005, 0.45, input_shape, yolo, all_classes)
+    _decode = Decode(conf_thresh, nms_thresh, input_shape, yolo, all_classes)
     box_ap = eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image)
 
