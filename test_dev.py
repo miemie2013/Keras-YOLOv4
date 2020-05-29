@@ -12,7 +12,7 @@ from tools.cocotools import get_classes
 from model.yolov4 import YOLOv4
 from model.decode_np import Decode
 import json
-from tools.cocotools import eval
+from tools.cocotools import test_dev
 
 import logging
 FORMAT = '%(asctime)s-%(levelname)s: %(message)s'
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     # 验证时的批大小
     eval_batch_size = 4
 
-    # 验证集图片的相对路径
+    # test集图片的相对路径
     eval_pre_path = '../COCO/val2017/'
     anno_file = '../COCO/annotations/instances_val2017.json'
     with open(anno_file, 'r', encoding='utf-8') as f2:
@@ -54,5 +54,5 @@ if __name__ == '__main__':
     yolo.load_weights(model_path, by_name=True)
 
     _decode = Decode(0.005, 0.45, input_shape, yolo, all_classes)
-    box_ap = eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image)
+    test_dev(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image)
 

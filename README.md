@@ -11,11 +11,20 @@
 和https://github.com/Tianxiaomo/pytorch-YOLOv4
 
 ## 传送门
-yolov3魔改成yolact：https://github.com/miemie2013/yolact
 
-Pytorch版：https://github.com/miemie2013/Pytorch-DIOU-YOLOv3
+Keras版YOLOv3: https://github.com/miemie2013/Keras-DIOU-YOLOv3
 
-PaddlePaddle版：https://github.com/miemie2013/Paddle-DIOU-YOLOv3
+Pytorch版YOLOv3：https://github.com/miemie2013/Pytorch-DIOU-YOLOv3
+
+PaddlePaddle版YOLOv3：https://github.com/miemie2013/Paddle-DIOU-YOLOv3
+
+PaddlePaddle完美复刻版版yolact: https://github.com/miemie2013/PaddlePaddle_yolact
+
+yolov3魔改成yolact: https://github.com/miemie2013/yolact
+
+Keras版YOLOv4: https://github.com/miemie2013/Keras-YOLOv4
+
+Pytorch版YOLOv4: 制作中
 
 ## 更新日记
 
@@ -75,7 +84,10 @@ xxx/xxx.jpg 48,240,195,371,11 8,12,352,498,14
 训练时默认每5000步计算一次验证集的mAP。
 
 ## 评估
-训练时默认每5000步计算一次验证集的mAP。或者运行eval.py评估指定模型的mAP。
+训练时默认每5000步计算一次验证集的mAP。或者运行eval.py评估指定模型的mAP。该mAP是val集的结果。
+
+## test-dev
+周末出。该mAP是test集的结果，也就是大部分检测算法论文的标准指标。据我观察test集的mAP和val集的mAP结果是差不多的。
 
 ## 预测
 运行demo.py。
