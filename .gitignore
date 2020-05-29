@@ -10,6 +10,7 @@ __pycache__/
 
 /images/res/*.jpg
 /eval_results/
+/results/
 /weights/
 /model/__pycache__/
 
