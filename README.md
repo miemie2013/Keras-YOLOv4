@@ -108,7 +108,7 @@ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.503
 Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.591
 ```
 
-该mAP是test集的结果，也就是大部分检测算法论文的标准指标。据我观察test集的mAP和val集的mAP是差不多的。
+该mAP是test集的结果，也就是大部分检测算法论文的标准指标。有点谜，根据我之前的经验test集的mAP和val集的mAP应该是差不多的。
 
 ## 预测
 运行demo.py。
