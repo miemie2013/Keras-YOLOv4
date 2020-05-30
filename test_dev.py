@@ -30,16 +30,17 @@ if __name__ == '__main__':
     # input_shape = (320, 320)
     # input_shape = (416, 416)
     input_shape = (608, 608)
-
-    # 是否画出验证集图片
-    # draw_image = True
+    # 测试时的分数阈值和nms_iou阈值
+    conf_thresh = 0.001
+    nms_thresh = 0.45
+    # 是否画出test集图片
     draw_image = False
-    # 验证时的批大小
-    eval_batch_size = 4
+    # 测试时的批大小
+    test_batch_size = 4
 
     # test集图片的相对路径
-    eval_pre_path = '../COCO/val2017/'
-    anno_file = '../COCO/annotations/instances_val2017.json'
+    test_pre_path = '../COCO/test2017/'
+    anno_file = '../COCO/annotations/image_info_test-dev2017.json'
     with open(anno_file, 'r', encoding='utf-8') as f2:
         for line in f2:
             line = line.strip()
@@ -53,6 +54,6 @@ if __name__ == '__main__':
     yolo = YOLOv4(inputs, num_classes, num_anchors)
     yolo.load_weights(model_path, by_name=True)
 
-    _decode = Decode(0.005, 0.45, input_shape, yolo, all_classes)
-    test_dev(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image)
+    _decode = Decode(conf_thresh, nms_thresh, input_shape, yolo, all_classes)
+    test_dev(_decode, images, test_pre_path, anno_file, test_batch_size, draw_image)
 

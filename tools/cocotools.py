@@ -146,7 +146,7 @@ def eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image)
     return box_ap_stats
 
 
-def test_dev(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image):
+def test_dev(_decode, images, test_pre_path, anno_file, test_batch_size, draw_image):
     # 8G内存的电脑并不能装下所有结果，所以把结果写进文件里。
     if os.path.exists('results/bbox/'): shutil.rmtree('results/bbox/')
     if draw_image:
@@ -163,15 +163,15 @@ def test_dev(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_im
     for i, im in enumerate(images):
         im_id = im['id']
         file_name = im['file_name']
-        image = cv2.imread(eval_pre_path + file_name)
-        if i % eval_batch_size == 0:
+        image = cv2.imread(test_pre_path + file_name)
+        if i % test_batch_size == 0:
             batch_im_id = []
             batch_img = []
         batch_im_id.append(im_id)
         batch_img.append(image)
 
         # 收集够一个batch的图片
-        if i != n - 1 and len(batch_img) != eval_batch_size:
+        if i != n - 1 and len(batch_img) != test_batch_size:
             continue
 
         result_image, result_boxes, result_scores, result_classes = _decode.detect_batch(batch_img, draw_image=draw_image)
@@ -199,17 +199,27 @@ def test_dev(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_im
                         'score': float(score)
                     }
                     bbox_data.append(bbox_res)
-                path = 'eval_results/bbox/%.12d.json' % im_id
+                path = 'results/bbox/%.12d.json' % im_id
                 if draw_image:
-                    cv2.imwrite('eval_results/images/%.12d.jpg' % im_id, image)
+                    cv2.imwrite('results/images/%.12d.jpg' % im_id, image)
                 with open(path, 'w') as f:
                     json.dump(bbox_data, f)
             count += 1
             k += 1
             if count % 100 == 0:
                 logger.info('Test iter {}'.format(count))
-    # 开始评测
-    box_ap_stats = bbox_eval(anno_file)
-    return box_ap_stats
-
+    # 生成json文件
+    logger.info('Generating json file...')
+    bbox_list = []
+    path_dir = os.listdir('results/bbox/')
+    for name in path_dir:
+        with open('results/bbox/' + name, 'r', encoding='utf-8') as f2:
+            for line in f2:
+                line = line.strip()
+                r_list = json.loads(line)
+                bbox_list += r_list
+    # 提交到网站的文件
+    with open('results/bbox_detections.json', 'w') as f2:
+        json.dump(bbox_list, f2)
+    logger.info('Done.')
 

@@ -87,7 +87,28 @@ xxx/xxx.jpg 48,240,195,371,11 8,12,352,498,14
 训练时默认每5000步计算一次验证集的mAP。或者运行eval.py评估指定模型的mAP。该mAP是val集的结果。
 
 ## test-dev
-周末出。该mAP是test集的结果，也就是大部分检测算法论文的标准指标。据我观察test集的mAP和val集的mAP是差不多的。
+运行test_dev.py。
+运行完之后，进入results目录，把bbox_detections.json压缩成bbox_detections.zip，提交到
+https://competitions.codalab.org/competitions/20794#participate
+获得bbox mAP.
+
+上述step00070000.h5在test集的mAP是（input_shape = (608, 608)，分数阈值=0.001，nms阈值=0.45的情况下）
+```
+Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.340
+Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.554
+Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.362
+Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.171
+Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.360
+Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.445
+Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.280
+Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.445
+Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.473
+Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.284
+Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.503
+Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.591
+```
+
+该mAP是test集的结果，也就是大部分检测算法论文的标准指标。据我观察test集的mAP和val集的mAP是差不多的。
 
 ## 预测
 运行demo.py。
