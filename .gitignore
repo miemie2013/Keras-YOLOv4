@@ -12,6 +12,7 @@ __pycache__/
 /eval_results/
 /results/
 /weights/
+/json_annotation/
 /model/__pycache__/
 
 
