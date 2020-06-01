@@ -16,16 +16,18 @@ import threading
 import datetime
 import keras
 import random
+import copy
 import numpy as np
 import keras.layers as layers
 import os
 import tensorflow as tf
 from keras import backend as K
 from model.yolov4 import YOLOv4
-from tools.cocotools import get_classes
+from tools.cocotools import get_classes, catid2clsid
 from model.decode_np import Decode
 from tools.cocotools import eval
 from tools.transform import random_horizontal_flip, random_crop, random_translate
+from pycocotools.coco import COCO
 
 import logging
 FORMAT = '%(asctime)s-%(levelname)s: %(message)s'
@@ -224,7 +226,7 @@ def yolo_loss(args, num_classes, iou_loss_thresh, anchors):
     prob_loss = sbbox_prob_loss + mbbox_prob_loss + lbbox_prob_loss
     return [ciou_loss, conf_loss, prob_loss]
 
-def image_preporcess(image, target_size, gt_boxes=None):
+def image_preporcess(image, target_size, gt_boxes):
     # 传入训练的图片是rgb格式
     ih, iw = target_size
     h, w = image.shape[:2]
@@ -248,25 +250,40 @@ def image_preporcess(image, target_size, gt_boxes=None):
         gt_boxes[:, [1, 3]] = gt_boxes[:, [1, 3]] * scale_y
         return pimage, gt_boxes
 
-def parse_annotation(annotation, train_input_size, annotation_type, pre_path):
-    line = annotation.split()
-    image_path = pre_path + line[0]
+def parse_annotation(coco, catid2clsid, img_id, train_input_size, annotation_type, pre_path):
+    img_anno = coco.loadImgs(img_id)[0]
+    im_fname = img_anno['file_name']
+    image_path = pre_path + im_fname
     image = cv2.imread(image_path)  # BGR mode, but need RGB mode
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # RGB mode
+
     # 没有标注物品，即每个格子都当作背景处理
     exist_boxes = True
-    if len(line) == 1:
-        bboxes = np.array([[10, 10, 101, 103, 0]])
+    ins_anno_ids = coco.getAnnIds(imgIds=img_id, iscrowd=False)  # 读取这张图片所有标注anno的id
+    if len(ins_anno_ids) == 0:
+        bboxes = np.array([[10, 10, 101, 103]])
+        clss = np.array([0])
         exist_boxes = False
     else:
-        bboxes = np.array([list(map(lambda x: int(float(x)), box.split(','))) for box in line[1:]])
+        instances = coco.loadAnns(ins_anno_ids)  # 这张图片所有标注anno。每个标注有'segmentation'、'bbox'、...
+        bboxes = []
+        clss = []
+        for ins in instances:
+            x1, y1, w, h = ins['bbox']
+            bboxes.append([x1, y1, x1+w, y1+h])
+            cate_id = ins['category_id']
+            clss.append(catid2clsid[cate_id])
+        bboxes = np.array(bboxes)
+        clss = np.array(clss)
+    bboxes = bboxes.astype(np.float32)
+    clss = clss.astype(np.int32)
     if annotation_type == 'train':
         # image, bboxes = random_fill(np.copy(image), np.copy(bboxes))    # 数据集缺乏小物体时打开
         image, bboxes = random_horizontal_flip(np.copy(image), np.copy(bboxes))
         image, bboxes = random_crop(np.copy(image), np.copy(bboxes))
         image, bboxes = random_translate(np.copy(image), np.copy(bboxes))
     image, bboxes = image_preporcess(np.copy(image), [train_input_size, train_input_size], np.copy(bboxes))
-    return image, bboxes, exist_boxes
+    return image, bboxes, clss, exist_boxes
 
 def bbox_iou_data(boxes1, boxes2):
     boxes1 = np.array(boxes1)
@@ -284,14 +301,13 @@ def bbox_iou_data(boxes1, boxes2):
     union_area = boxes1_area + boxes2_area - inter_area
     return inter_area / union_area
 
-def preprocess_true_boxes(bboxes, train_output_sizes, strides, num_classes, max_bbox_per_scale, anchors):
+def preprocess_true_boxes(bboxes, clss, train_output_sizes, strides, num_classes, max_bbox_per_scale, anchors):
     label = [np.zeros((train_output_sizes[i], train_output_sizes[i], 3,
                        5 + num_classes)) for i in range(3)]
     bboxes_xywh = [np.zeros((max_bbox_per_scale, 4)) for _ in range(3)]
     bbox_count = np.zeros((3,))
-    for bbox in bboxes:
-        bbox_coor = bbox[:4]
-        bbox_class_ind = bbox[4]
+    for k, bbox_coor in enumerate(bboxes):
+        bbox_class_ind = clss[k]
         onehot = np.zeros(num_classes, dtype=np.float)
         onehot[bbox_class_ind] = 1.0
         bbox_xywh = np.concatenate([(bbox_coor[2:] + bbox_coor[:2]) * 0.5, bbox_coor[2:] - bbox_coor[:2]], axis=-1)
@@ -325,12 +341,12 @@ def preprocess_true_boxes(bboxes, train_output_sizes, strides, num_classes, max_
     sbboxes, mbboxes, lbboxes = bboxes_xywh
     return label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes
 
-def multi_thread_read(batch, num, train_input_size, annotation_type, train_output_sizes, strides, num_classes,
+def multi_thread_read(coco, catid2clsid, batch_img_ids, num, train_input_size, annotation_type, train_output_sizes, strides, num_classes,
                       max_bbox_per_scale, anchors, batch_image,
                       batch_label_sbbox, batch_label_mbbox, batch_label_lbbox,
                       batch_sbboxes, batch_mbboxes, batch_lbboxes, pre_path):
-    image, bboxes, exist_boxes = parse_annotation(batch[num], train_input_size, annotation_type, pre_path)
-    label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = preprocess_true_boxes(bboxes, train_output_sizes,
+    image, bboxes, clss, exist_boxes = parse_annotation(coco, catid2clsid, batch_img_ids[num], train_input_size, annotation_type, pre_path)
+    label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = preprocess_true_boxes(bboxes, clss, train_output_sizes,
                                                                                              strides, num_classes,
                                                                                              max_bbox_per_scale,
                                                                                              anchors)
@@ -343,7 +359,7 @@ def multi_thread_read(batch, num, train_input_size, annotation_type, train_outpu
         batch_mbboxes[num, :, :] = mbboxes
         batch_lbboxes[num, :, :] = lbboxes
 
-def generate_one_batch(annotation_lines, step, batch_size, anchors, num_classes, max_bbox_per_scale, pre_path, annotation_type):
+def generate_one_batch(coco, catid2clsid, img_ids, step, batch_size, anchors, num_classes, max_bbox_per_scale, pre_path, annotation_type):
     # 多尺度训练
     train_input_sizes = [320, 352, 384, 416, 448, 480, 512, 544, 576, 608]
     train_input_size = random.choice(train_input_sizes)
@@ -365,7 +381,7 @@ def generate_one_batch(annotation_lines, step, batch_size, anchors, num_classes,
     batch_mbboxes = np.zeros((batch_size, max_bbox_per_scale, 4))
     batch_lbboxes = np.zeros((batch_size, max_bbox_per_scale, 4))
 
-    batch = annotation_lines[step * batch_size:(step + 1) * batch_size]
+    batch_img_ids = img_ids[step * batch_size:(step + 1) * batch_size]
 
     # 单线程
     # for num in range(batch_size):
@@ -385,7 +401,7 @@ def generate_one_batch(annotation_lines, step, batch_size, anchors, num_classes,
     threads = []
     for num in range(batch_size):
         t = threading.Thread(target=multi_thread_read, args=(
-            batch, num, train_input_size, annotation_type, train_output_sizes, strides, num_classes, max_bbox_per_scale,
+            coco, catid2clsid, batch_img_ids, num, train_input_size, annotation_type, train_output_sizes, strides, num_classes, max_bbox_per_scale,
             anchors, batch_image,
             batch_label_sbbox, batch_label_mbbox, batch_label_lbbox,
             batch_sbboxes, batch_mbboxes, batch_lbboxes, pre_path))
@@ -404,19 +420,12 @@ if __name__ == '__main__':
     # val_path = 'annotation/voc2012_val.txt'
     # classes_path = 'data/voc_classes.txt'
 
-    train_path = 'annotation/coco2017_train.txt'
+    # COCO数据集
+    train_path = '../COCO/annotations/instances_train2017.json'
+    val_path = '../COCO/annotations/instances_val2017.json'
     classes_path = 'data/coco_classes.txt'
-    # 数据集图片的相对路径
-    pre_path = '../COCO/'
-
-    # 验证集图片的相对路径
-    eval_pre_path = '../COCO/val2017/'
-    anno_file = '../COCO/annotations/instances_val2017.json'
-    with open(anno_file, 'r', encoding='utf-8') as f2:
-        for line in f2:
-            line = line.strip()
-            dataset = json.loads(line)
-            images = dataset['images']
+    train_pre_path = '../COCO/train2017/'   # 训练集图片相对路径
+    val_pre_path = '../COCO/val2017/'       # 验证集图片相对路径
 
 
     class_names = get_classes(classes_path)
@@ -507,9 +516,18 @@ if __name__ == '__main__':
     # keras.utils.vis_utils.plot_model(model_body, to_file='yolov4.png', show_shapes=True)
 
     # 训练集
-    with open(train_path) as f:
-        train_lines = f.readlines()
-    num_train = len(train_lines)
+    train_dataset = COCO(train_path)
+    train_img_ids = train_dataset.getImgIds()
+    num_train = len(train_img_ids)
+    # 验证集
+    with open(val_path, 'r', encoding='utf-8') as f2:
+        for line in f2:
+            line = line.strip()
+            dataset = json.loads(line)
+            val_images = dataset['images']
+    _catid2clsid = copy.deepcopy(catid2clsid)
+    # if num_classes != 80 and 'aaaaaa' not in train_path:
+    #     print()
 
     # 保存模型的目录
     if not os.path.exists('./weights'): os.mkdir('./weights')
@@ -526,7 +544,7 @@ if __name__ == '__main__':
     best_ap_list = [0.0, 0]  #[map, iter]
     while True:   # 无限个epoch
         # 每个epoch之前洗乱
-        np.random.shuffle(train_lines)
+        np.random.shuffle(train_img_ids)
         for step in range(train_steps):
             iter_id += 1
 
@@ -539,8 +557,8 @@ if __name__ == '__main__':
             eta = str(datetime.timedelta(seconds=int(eta_sec)))
 
             # train
-            batch_xs, y_true = generate_one_batch(train_lines, step, batch_size, anchors, num_classes,
-                                                     max_bbox_per_scale, pre_path, 'train')
+            batch_xs, y_true = generate_one_batch(train_dataset, _catid2clsid, train_img_ids, step, batch_size, anchors, num_classes,
+                                                  max_bbox_per_scale, train_pre_path, 'train')
             losses = model.train_on_batch(batch_xs, y_true)
 
             # log
@@ -568,7 +586,7 @@ if __name__ == '__main__':
 
             # eval
             if iter_id % eval_iter == 0:
-                box_ap = eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image)
+                box_ap = eval(_decode, val_images, val_pre_path, val_path, eval_batch_size, draw_image)
                 logger.info("box ap: %.3f" % (box_ap[0], ))
 
                 # 以box_ap作为标准
