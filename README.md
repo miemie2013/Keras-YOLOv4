@@ -92,7 +92,7 @@ xxx.jpg 48,240,195,371,11 8,12,352,498,14
 运行1_txt2json.py会在annotation_json目录下生成两个coco注解风格的json注解文件，这是train.py支持的注解文件格式。
 在train.py里修改train_path、val_path、classes_path、train_pre_path、val_pre_path这5个变量（自带的voc2012数据集直接解除注释就ok了）就可以开始训练自己的数据集了。
 而且，直接加载yolov4.h5的权重训练也是可以的，这时候keras也仅仅不加载3个输出卷积层的6个权重（因为类别数不同导致了输出通道数不同）。
-如果需要跑demo.py、eval.py，相关变量也需要修改一下，应该很容易看懂。
+如果需要跑demo.py、eval.py，与数据集有关的变量也需要修改一下，应该很容易看懂。
 
 ## 评估
 训练时默认每5000步计算一次验证集的mAP。或者运行eval.py评估指定模型的mAP。该mAP是val集的结果。
