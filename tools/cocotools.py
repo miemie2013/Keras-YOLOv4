@@ -165,7 +165,7 @@ def eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, _clsid2cati
     return box_ap_stats
 
 
-def test_dev(_decode, images, test_pre_path, anno_file, test_batch_size, draw_image):
+def test_dev(_decode, images, test_pre_path, test_batch_size, draw_image):
     # 8G内存的电脑并不能装下所有结果，所以把结果写进文件里。
     if os.path.exists('results/bbox/'): shutil.rmtree('results/bbox/')
     if draw_image:

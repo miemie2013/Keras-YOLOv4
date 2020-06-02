@@ -55,5 +55,5 @@ if __name__ == '__main__':
     yolo.load_weights(model_path, by_name=True)
 
     _decode = Decode(conf_thresh, nms_thresh, input_shape, yolo, all_classes)
-    test_dev(_decode, images, test_pre_path, anno_file, test_batch_size, draw_image)
+    test_dev(_decode, images, test_pre_path, test_batch_size, draw_image)
 
