@@ -23,7 +23,7 @@ import os
 import tensorflow as tf
 from keras import backend as K
 from model.yolov4 import YOLOv4
-from tools.cocotools import get_classes, catid2clsid
+from tools.cocotools import get_classes, catid2clsid, clsid2catid
 from model.decode_np import Decode
 from tools.cocotools import eval
 from tools.transform import random_horizontal_flip, random_crop, random_translate
@@ -416,9 +416,12 @@ def generate_one_batch(coco, catid2clsid, img_ids, step, batch_size, anchors, nu
 
 
 if __name__ == '__main__':
-    # train_path = 'annotation/voc2012_train.txt'
-    # val_path = 'annotation/voc2012_val.txt'
+    # 自定义数据集
+    # train_path = 'annotation_json/voc2012_train.json'
+    # val_path = 'annotation_json/voc2012_val.json'
     # classes_path = 'data/voc_classes.txt'
+    # train_pre_path = '../VOCdevkit/VOC2012/JPEGImages/'   # 训练集图片相对路径
+    # val_pre_path = '../VOCdevkit/VOC2012/JPEGImages/'     # 验证集图片相对路径
 
     # COCO数据集
     train_path = '../COCO/annotations/instances_train2017.json'
@@ -481,7 +484,7 @@ if __name__ == '__main__':
         batch_size = 8
         model_path = 'yolov4.h5'
         # model_path = './weights/step00001000.h5'
-        model_body.load_weights(model_path, by_name=True)
+        model_body.load_weights(model_path, by_name=True, skip_mismatch=True)
         strs = model_path.split('step')
         if len(strs) == 2:
             iter_id = int(strs[1][:8])
@@ -526,8 +529,13 @@ if __name__ == '__main__':
             dataset = json.loads(line)
             val_images = dataset['images']
     _catid2clsid = copy.deepcopy(catid2clsid)
-    # if num_classes != 80 and 'aaaaaa' not in train_path:
-    #     print()
+    _clsid2catid = copy.deepcopy(clsid2catid)
+    if num_classes != 80:   # 如果不是COCO数据集，而是自定义数据集
+        _catid2clsid = {}
+        _clsid2catid = {}
+        for k in range(num_classes):
+            _catid2clsid[k] = k
+            _clsid2catid[k] = k
 
     # 保存模型的目录
     if not os.path.exists('./weights'): os.mkdir('./weights')
@@ -586,7 +594,7 @@ if __name__ == '__main__':
 
             # eval
             if iter_id % eval_iter == 0:
-                box_ap = eval(_decode, val_images, val_pre_path, val_path, eval_batch_size, draw_image)
+                box_ap = eval(_decode, val_images, val_pre_path, val_path, eval_batch_size, _clsid2catid, draw_image)
                 logger.info("box ap: %.3f" % (box_ap[0], ))
 
                 # 以box_ap作为标准

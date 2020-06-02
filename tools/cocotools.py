@@ -94,7 +94,7 @@ def bbox_eval(anno_file):
     sys.stdout.flush()
     return map_stats
 
-def eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image):
+def eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, _clsid2catid, draw_image):
     # 8G内存的电脑并不能装下所有结果，所以把结果写进文件里。
     if os.path.exists('eval_results/bbox/'): shutil.rmtree('eval_results/bbox/')
     if draw_image:
@@ -107,6 +107,7 @@ def eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image)
     count = 0
     n = len(images)
     batch_im_id = []
+    batch_im_name = []
     batch_img = []
     for i, im in enumerate(images):
         im_id = im['id']
@@ -114,8 +115,10 @@ def eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image)
         image = cv2.imread(eval_pre_path + file_name)
         if i % eval_batch_size == 0:
             batch_im_id = []
+            batch_im_name = []
             batch_img = []
         batch_im_id.append(im_id)
+        batch_im_name.append(file_name)
         batch_img.append(image)
 
         # 收集够一个batch的图片
@@ -127,13 +130,14 @@ def eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image)
         for image, boxes, scores, classes in zip(result_image, result_boxes, result_scores, result_classes):
             if boxes is not None:
                 im_id = batch_im_id[k]
+                im_name = batch_im_name[k]
                 n = len(boxes)
                 bbox_data = []
                 for p in range(n):
                     clsid = classes[p]
                     score = scores[p]
                     xmin, ymin, xmax, ymax = boxes[p]
-                    catid = (clsid2catid[int(clsid)])
+                    catid = (_clsid2catid[int(clsid)])
                     w = xmax - xmin + 1
                     h = ymax - ymin + 1
 
@@ -147,9 +151,9 @@ def eval(_decode, images, eval_pre_path, anno_file, eval_batch_size, draw_image)
                         'score': float(score)
                     }
                     bbox_data.append(bbox_res)
-                path = 'eval_results/bbox/%.12d.json' % im_id
+                path = 'eval_results/bbox/%s.json' % im_name.split('.')[0]
                 if draw_image:
-                    cv2.imwrite('eval_results/images/%.12d.jpg' % im_id, image)
+                    cv2.imwrite('eval_results/images/%s' % im_name, image)
                 with open(path, 'w') as f:
                     json.dump(bbox_data, f)
             count += 1

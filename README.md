@@ -30,6 +30,8 @@ Pytorch版YOLOv4: 制作中
 
 2020/05/20:初次见面
 
+2020/06/02:支持训练自定义数据集。
+
 ## FBI WARNING
 
 大部分代码搬运了Keras-DIOU-YOLOv3的代码，除了网络结构大改。YOLOv4的许多料都还没有堆上去，请给我一点时间。
@@ -71,17 +73,24 @@ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.639
 运行train.py进行训练。train.py不支持命令行参数设置使用的数据集、超参数。
 而是通过修改train.py源代码来进行更换数据集、更改超参数（减少冗余代码）。
 
-数据集注解文件的格式如下：
-```
-xxx/xxx.jpg 18.19,6.32,424.13,421.83,20 323.86,2.65,640.0,421.94,20 
-xxx/xxx.jpg 48,240,195,371,11 8,12,352,498,14
-# image_path x_min, y_min, x_max, y_max, class_id  x_min, y_min ,..., class_id 
-# make sure that x_max < width and y_max < height
-```
-
 或者你不下载yolov4.pt，而是下载上面提到的训练不充分的step00070000.h5继续训练也可以。
 追求更高的精度，你需要把冻结层的代码删除，也就是train.py中ly.trainable = False那一部分。但是需要你有一块高显存的显卡。
 训练时默认每5000步计算一次验证集的mAP。
+
+## 训练自定义数据集
+自带的voc2012数据集是一个很好的例子。
+
+将自己数据集的txt注解文件放到annotation目录下，txt注解文件的格式如下：
+```
+xxx.jpg 18.19,6.32,424.13,421.83,20 323.86,2.65,640.0,421.94,20
+xxx.jpg 48,240,195,371,11 8,12,352,498,14
+# image_file_name x_min, y_min, x_max, y_max, class_id  x_min, y_min ,..., class_id
+# make sure that x_max < width and y_max < height
+```
+运行1_txt2json.json会在annotation_json目录下生成两个coco注解风格的json注解文件，这是train.py支持的注解文件格式。
+在train.py里修改train_path、val_path、classes_path、train_pre_path、val_pre_path这5个变量（自带的voc2012数据集直接解除注释就ok了）就可以开始训练自己的数据集了。
+而且，直接加载yolov4.h5的权重训练也是可以的，这时候keras也仅仅不加载3个输出卷积层的6个权重（因为类别数不同导致了输出通道数不同）。
+如果需要跑demo.py、eval.py，相关变量也需要修改一下，应该很容易看懂。
 
 ## 评估
 训练时默认每5000步计算一次验证集的mAP。或者运行eval.py评估指定模型的mAP。该mAP是val集的结果。

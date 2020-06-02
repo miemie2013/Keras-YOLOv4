@@ -42,6 +42,7 @@ set_session(tf.Session(config=config))
 
 
 if __name__ == '__main__':
+    # classes_path = 'data/voc_classes.txt'
     classes_path = 'data/coco_classes.txt'
     # model_path可以是'yolov4.h5'、'./weights/step00001000.h5'这些。
     # model_path = 'yolov4.h5'
