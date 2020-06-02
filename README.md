@@ -77,6 +77,8 @@ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.639
 追求更高的精度，你需要把冻结层的代码删除，也就是train.py中ly.trainable = False那一部分。但是需要你有一块高显存的显卡。
 训练时默认每5000步计算一次验证集的mAP。
 
+训练时如果发现mAP很稳定了，就停掉，修改学习率为原来的十分之一，接着继续训练，mAP还会再上升。暂时是这样手动操作。
+
 ## 训练自定义数据集
 自带的voc2012数据集是一个很好的例子。
 
@@ -87,7 +89,7 @@ xxx.jpg 48,240,195,371,11 8,12,352,498,14
 # image_file_name x_min, y_min, x_max, y_max, class_id  x_min, y_min ,..., class_id
 # make sure that x_max < width and y_max < height
 ```
-运行1_txt2json.json会在annotation_json目录下生成两个coco注解风格的json注解文件，这是train.py支持的注解文件格式。
+运行1_txt2json.py会在annotation_json目录下生成两个coco注解风格的json注解文件，这是train.py支持的注解文件格式。
 在train.py里修改train_path、val_path、classes_path、train_pre_path、val_pre_path这5个变量（自带的voc2012数据集直接解除注释就ok了）就可以开始训练自己的数据集了。
 而且，直接加载yolov4.h5的权重训练也是可以的，这时候keras也仅仅不加载3个输出卷积层的6个权重（因为类别数不同导致了输出通道数不同）。
 如果需要跑demo.py、eval.py，相关变量也需要修改一下，应该很容易看懂。
