@@ -9,9 +9,39 @@
 # ================================================================
 
 import keras
+import tensorflow as tf
 import keras.layers as layers
 from keras import backend as K
 from keras.engine.topology import Layer
+from model.fastnms import fastnms
+
+
+# 对坐标解码
+def decode(conv_output, anchors, stride, num_class):
+    conv_shape       = tf.shape(conv_output)
+    batch_size       = conv_shape[0]
+    output_size      = conv_shape[1]
+    anchor_per_scale = len(anchors)
+    conv_output = tf.reshape(conv_output, (batch_size, output_size, output_size, anchor_per_scale, 5 + num_class))
+    conv_raw_dxdy = conv_output[:, :, :, :, 0:2]
+    conv_raw_dwdh = conv_output[:, :, :, :, 2:4]
+    conv_raw_conf = conv_output[:, :, :, :, 4:5]
+    conv_raw_prob = conv_output[:, :, :, :, 5: ]
+    y = tf.tile(tf.range(output_size, dtype=tf.int32)[:, tf.newaxis], [1, output_size])
+    x = tf.tile(tf.range(output_size, dtype=tf.int32)[tf.newaxis, :], [output_size, 1])
+    xy_grid = tf.concat([x[:, :, tf.newaxis], y[:, :, tf.newaxis]], axis=-1)
+    xy_grid = tf.tile(xy_grid[tf.newaxis, :, :, tf.newaxis, :], [batch_size, 1, 1, anchor_per_scale, 1])
+    xy_grid = tf.cast(xy_grid, tf.float32)
+    pred_xy = (tf.sigmoid(conv_raw_dxdy) + xy_grid) * stride
+    pred_wh = (tf.exp(conv_raw_dwdh) * anchors)
+    pred_xywh = tf.concat([pred_xy, pred_wh], axis=-1)
+    pred_conf = tf.sigmoid(conv_raw_conf)
+    pred_prob = tf.sigmoid(conv_raw_prob)
+
+    pred_xywh = tf.reshape(pred_xywh, (batch_size, -1, 4))  # [-1, -1, 4]
+    pred_conf = tf.reshape(pred_conf, (batch_size, -1, 1))  # [-1, -1, 1]
+    pred_prob = tf.reshape(pred_prob, (batch_size, -1, num_class))  # [-1, -1, 80]
+    return pred_xywh, pred_conf, pred_prob
 
 
 class Mish(Layer):
@@ -60,7 +90,8 @@ def spp(x):
     out = layers.Concatenate()([x_4, x_3, x_2, x_1])
     return out
 
-def YOLOv4(inputs, num_classes, num_anchors, initial_filters = 32):
+def YOLOv4(inputs, num_classes, num_anchors, initial_filters=32,
+           fast=False, anchors=None, conf_thresh=0.05, nms_thresh=0.45, keep_top_k=100, nms_top_k=100):
     i32 = initial_filters
     i64 = i32 * 2
     i128 = i32 * 4
@@ -181,7 +212,32 @@ def YOLOv4(inputs, num_classes, num_anchors, initial_filters = 32):
     output_l = conv2d_unit(x, i1024, 3, strides=1, padding='same', act='leaky')
     output_l = conv2d_unit(output_l, num_anchors * (num_classes + 5), 1, strides=1, bn=0, act=None)
 
-    model_body = keras.models.Model(inputs=inputs, outputs=[output_l, output_m, output_s])
+    # 用张量操作实现后处理
+    if fast:
+        def output_layer(args):
+            output_s, output_m, output_l = args
+
+            # 先对坐标解码
+            pred_xywh_s, pred_conf_s, pred_prob_s = decode(output_s, anchors[0], 8, num_classes)
+            pred_xywh_m, pred_conf_m, pred_prob_m = decode(output_m, anchors[1], 16, num_classes)
+            pred_xywh_l, pred_conf_l, pred_prob_l = decode(output_l, anchors[2], 32, num_classes)
+            # 获取分数
+            pred_score_s = pred_conf_s * pred_prob_s
+            pred_score_m = pred_conf_m * pred_prob_m
+            pred_score_l = pred_conf_l * pred_prob_l
+            # 所有输出层的预测框集合后再执行nms
+            all_pred_boxes = tf.concat([pred_xywh_s, pred_xywh_m, pred_xywh_l], axis=1)       # [batch_size, -1, 4]
+            all_pred_scores = tf.concat([pred_score_s, pred_score_m, pred_score_l], axis=1)   # [batch_size, -1, 80]
+
+            # 用fastnms
+            output = fastnms(all_pred_boxes, all_pred_scores, conf_thresh, nms_thresh, keep_top_k, nms_top_k)
+
+            return output
+            # return [all_pred_boxes, all_pred_scores]
+        output = layers.Lambda(output_layer)([output_s, output_m, output_l])
+        model_body = keras.models.Model(inputs=inputs, outputs=output)
+    else:
+        model_body = keras.models.Model(inputs=inputs, outputs=[output_l, output_m, output_s])
     return model_body
 
 
