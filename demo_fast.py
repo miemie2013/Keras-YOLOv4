@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     # 是否给图片画框。不画可以提速。读图片、后处理还可以继续优化。
     draw_image = True
-    # draw_image = False
+    draw_image = False
 
     # 初始卷积核个数
     initial_filters = 32
@@ -113,22 +113,28 @@ if __name__ == '__main__':
     yolo = YOLOv4(inputs, num_classes, num_anchors, initial_filters, True, anchors, conf_thresh, nms_thresh, keep_top_k, nms_top_k)
     yolo.load_weights(model_path, by_name=True)
 
-
     # 定义颜色
     hsv_tuples = [(1.0 * x / num_classes, 1., 1.) for x in range(num_classes)]
     colors = list(map(lambda x: colorsys.hsv_to_rgb(*x), hsv_tuples))
     colors = list(map(lambda x: (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255)), colors))
-
-
     random.seed(0)
     random.shuffle(colors)
     random.seed(None)
 
+
+    path_dir = os.listdir('images/test')
+    # warm up
+    for k, filename in enumerate(path_dir):
+        image = cv2.imread('images/test/' + filename)
+        pimage = process_image(np.copy(image), input_shape)
+        outs = yolo.predict(pimage)
+        if k == 10:
+            break
+
+
     time_stat = deque(maxlen=20)
     start_time = time.time()
     end_time = time.time()
-
-    path_dir = os.listdir('images/test')
     num_imgs = len(path_dir)
     start = time.time()
     for k, filename in enumerate(path_dir):
@@ -138,18 +144,6 @@ if __name__ == '__main__':
         outs = yolo.predict(pimage)
         boxes, scores, classes = outs[0][0], outs[1][0], outs[2][0]
 
-        # 再做一次分数过滤。前面提到，只要某个框最高分数>阈值就保留，
-        # 然而计算上面那个矩阵时，这个框其实重复了80次，每一个分身代表是不同类的物品。
-        # 非最高分数的其它类别，它的得分可能小于阈值，要过滤。
-        # 所以fastnms存在这么一个现象：某个框它最高分数 > 阈值，它有一个非最高分数类的得分也超过了阈值，
-        # 那么最后有可能两个框都保留，而且这两个框有相同的xywh
-        # keep = np.where(scores > conf_thresh)[0]
-        # boxes = boxes[keep]
-        # scores = scores[keep]
-        # classes = classes[keep]
-        # print(keep)
-        # print(scores)
-        # print(boxes)
         img_h, img_w, _ = image.shape
         a = input_shape[0]
         boxes = boxes * [img_w/a, img_h/a, img_w/a, img_h/a]
@@ -170,6 +164,6 @@ if __name__ == '__main__':
             logger.info("Detection bbox results save in images/res/{}".format(filename))
     cost = time.time() - start
     logger.info('total time: {0:.6f}s'.format(cost))
-    logger.info('Speed: {0:.6f}s per image'.format(cost / num_imgs))
+    logger.info('Speed: %.6fs per image,  %.1f FPS.'%((cost / num_imgs), (num_imgs / cost)))
 
 
