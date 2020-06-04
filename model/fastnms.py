@@ -135,6 +135,23 @@ def fastnms(all_pred_boxes, all_pred_scores, conf_thresh, nms_thresh, keep_top_k
     boxes = tf.gather(all_pred_boxes[0], keep)  # [?, 4]
     boxes, scores, classes = fast_nms(boxes, scores, conf_thresh, nms_thresh, keep_top_k, nms_top_k)
 
+
+    # 再做一次分数过滤。前面提到，只要某个框最高分数>阈值就保留，
+    # 然而计算上面那个矩阵时，这个框其实重复了80次，每一个分身代表是不同类的物品。
+    # 非最高分数的其它类别，它的得分可能小于阈值，要过滤。
+    # 所以fastnms存在这么一个现象：某个框它最高分数 > 阈值，它有一个非最高分数类的得分也超过了阈值，
+    # 那么最后有可能两个框都保留，而且这两个框有相同的xywh
+    keep = tf.where(scores > conf_thresh)  # 最高分数大与阈值的保留
+    keep = tf.reshape(keep, (-1,))  # [-1, ]
+    boxes = tf.gather(boxes, keep)
+    scores = tf.gather(scores, keep)
+    classes = tf.gather(classes, keep)
+
+
+    # 变成左上角坐标、右下角坐标
+    boxes = tf.concat([boxes[..., :2] - boxes[..., 2:] * 0.5,
+                       boxes[..., :2] + boxes[..., 2:] * 0.5], axis=-1)
+
     # 为了应付keras自定义层的规则
     boxes = tf.reshape(boxes, (1, -1, 4))
     scores = tf.reshape(scores, (1, -1))

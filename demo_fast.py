@@ -11,6 +11,8 @@ from collections import deque
 import datetime
 import cv2
 import os
+import colorsys
+import random
 import time
 import numpy as np
 import tensorflow as tf
@@ -51,6 +53,27 @@ def process_image(img, input_shape):
     pimage = np.expand_dims(pimage, axis=0)
     return pimage
 
+
+def draw(image, boxes, scores, classes, all_classes, colors):
+    image_h, image_w, _ = image.shape
+    for box, score, cl in zip(boxes, scores, classes):
+        x0, y0, x1, y1 = box
+        left = max(0, np.floor(x0 + 0.5).astype(int))
+        top = max(0, np.floor(y0 + 0.5).astype(int))
+        right = min(image.shape[1], np.floor(x1 + 0.5).astype(int))
+        bottom = min(image.shape[0], np.floor(y1 + 0.5).astype(int))
+        bbox_color = colors[cl]
+        # bbox_thick = 1 if min(image_h, image_w) < 400 else 2
+        bbox_thick = 1
+        cv2.rectangle(image, (left, top), (right, bottom), bbox_color, bbox_thick)
+        bbox_mess = '%s: %.2f' % (all_classes[cl], score)
+        t_size = cv2.getTextSize(bbox_mess, 0, 0.5, thickness=1)[0]
+        cv2.rectangle(image, (left, top), (left + t_size[0], top - t_size[1] - 3), bbox_color, -1)
+        cv2.putText(image, bbox_mess, (left, top - 2), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5, (0, 0, 0), 1, lineType=cv2.LINE_AA)
+
+
+
 if __name__ == '__main__':
     # classes_path = 'data/voc_classes.txt'
     classes_path = 'data/coco_classes.txt'
@@ -64,7 +87,7 @@ if __name__ == '__main__':
     # input_shape = (608, 608)
 
     # 验证时的分数阈值和nms_iou阈值
-    conf_thresh = 0.65
+    conf_thresh = 0.05
     nms_thresh = 0.45
     keep_top_k = 100
     nms_top_k = 100
@@ -91,6 +114,16 @@ if __name__ == '__main__':
     yolo.load_weights(model_path, by_name=True)
 
 
+    # 定义颜色
+    hsv_tuples = [(1.0 * x / num_classes, 1., 1.) for x in range(num_classes)]
+    colors = list(map(lambda x: colorsys.hsv_to_rgb(*x), hsv_tuples))
+    colors = list(map(lambda x: (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255)), colors))
+
+
+    random.seed(0)
+    random.shuffle(colors)
+    random.seed(None)
+
     time_stat = deque(maxlen=20)
     start_time = time.time()
     end_time = time.time()
@@ -103,10 +136,28 @@ if __name__ == '__main__':
 
         pimage = process_image(np.copy(image), input_shape)
         outs = yolo.predict(pimage)
-        # image, boxes, scores, classes = _decode.detect_image(image, draw_image)
+        boxes, scores, classes = outs[0][0], outs[1][0], outs[2][0]
+
+        # 再做一次分数过滤。前面提到，只要某个框最高分数>阈值就保留，
+        # 然而计算上面那个矩阵时，这个框其实重复了80次，每一个分身代表是不同类的物品。
+        # 非最高分数的其它类别，它的得分可能小于阈值，要过滤。
+        # 所以fastnms存在这么一个现象：某个框它最高分数 > 阈值，它有一个非最高分数类的得分也超过了阈值，
+        # 那么最后有可能两个框都保留，而且这两个框有相同的xywh
+        # keep = np.where(scores > conf_thresh)[0]
+        # boxes = boxes[keep]
+        # scores = scores[keep]
+        # classes = classes[keep]
+        # print(keep)
+        # print(scores)
+        # print(boxes)
+        img_h, img_w, _ = image.shape
+        a = input_shape[0]
+        boxes = boxes * [img_w/a, img_h/a, img_w/a, img_h/a]
+        if boxes is not None and draw_image:
+            draw(image, boxes, scores, classes, all_classes, colors)
 
         # 估计剩余时间
-        '''start_time = end_time
+        start_time = end_time
         end_time = time.time()
         time_stat.append(end_time - start_time)
         time_cost = np.mean(time_stat)
@@ -119,6 +170,6 @@ if __name__ == '__main__':
             logger.info("Detection bbox results save in images/res/{}".format(filename))
     cost = time.time() - start
     logger.info('total time: {0:.6f}s'.format(cost))
-    logger.info('Speed: {0:.6f}s per image'.format(cost / num_imgs))'''
+    logger.info('Speed: {0:.6f}s per image'.format(cost / num_imgs))
 
 
