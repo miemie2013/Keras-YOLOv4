@@ -61,8 +61,10 @@ def fast_nms(boxes, scores, conf_thresh, nms_thresh, keep_top_k, nms_top_k):
     '''
 
     # 同类方框根据得分降序排列
-    idx = tf.argsort(scores, axis=1, direction='DESCENDING')
-    scores = tf.sort(scores, axis=1, direction='DESCENDING')
+    # idx = tf.argsort(scores, axis=1, direction='DESCENDING')
+    # scores = tf.sort(scores, axis=1, direction='DESCENDING')
+    k = tf.shape(scores)[1]
+    scores, idx = tf.nn.top_k(scores, k=k, sorted=True)
 
     idx = idx[:, :keep_top_k]
     scores = scores[:, :keep_top_k]
@@ -100,8 +102,10 @@ def fast_nms(boxes, scores, conf_thresh, nms_thresh, keep_top_k, nms_top_k):
     scores = tf.gather_nd(scores, keep)
 
     # Only keep the top cfg.max_num_detections highest scores across all classes
-    idx = tf.argsort(scores, axis=0, direction='DESCENDING')
-    scores = tf.sort(scores, axis=0, direction='DESCENDING')
+    # idx = tf.argsort(scores, axis=0, direction='DESCENDING')
+    # scores = tf.sort(scores, axis=0, direction='DESCENDING')
+    k = tf.shape(scores)[0]
+    scores, idx = tf.nn.top_k(scores, k=k, sorted=True)
 
     idx = idx[:nms_top_k]
     scores = scores[:nms_top_k]

@@ -56,7 +56,7 @@ boxes = tf.gather(all_pred_boxes[0], keep)  # [?, 4]
 boxes, scores, classes = fast_nms(boxes, scores, conf_thresh, nms_thresh, keep_top_k, nms_top_k)
 
 sess = K.get_session()
-aaa00 = sess.run(classes, feed_dict={all_pred_boxes: all_pred_boxes2, all_pred_scores: all_pred_scores2,})
+aaa00 = sess.run(scores, feed_dict={all_pred_boxes: all_pred_boxes2, all_pred_scores: all_pred_scores2,})
 
 
 # aaa01 = np.mean(aaa00)573 405   372 394
