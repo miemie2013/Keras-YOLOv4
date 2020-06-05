@@ -88,8 +88,7 @@ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.639
 ```
 xxx.jpg 18.19,6.32,424.13,421.83,20 323.86,2.65,640.0,421.94,20
 xxx.jpg 48,240,195,371,11 8,12,352,498,14
-# image_file_name x_min, y_min, x_max, y_max, class_id  x_min, y_min ,..., class_id
-# make sure that x_max < width and y_max < height
+# 图片名 物体1左上角x坐标,物体1左上角y坐标,物体1右下角x坐标,物体1右下角y坐标,物体1类别id 物体2左上角x坐标,物体2左上角y坐标,物体2右下角x坐标,物体2右下角y坐标,物体2类别id ...
 ```
 运行1_txt2json.py会在annotation_json目录下生成两个coco注解风格的json注解文件，这是train.py支持的注解文件格式。
 在train.py里修改train_path、val_path、classes_path、train_pre_path、val_pre_path这5个变量（自带的voc2012数据集直接解除注释就ok了）就可以开始训练自己的数据集了。
