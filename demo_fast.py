@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     # 是否给图片画框。不画可以提速。读图片、后处理还可以继续优化。
     draw_image = True
-    draw_image = False
+    # draw_image = False
 
     # 初始卷积核个数
     initial_filters = 32
@@ -126,7 +126,13 @@ if __name__ == '__main__':
     # warm up
     for k, filename in enumerate(path_dir):
         image = cv2.imread('images/test/' + filename)
+
+        # 预处理方式一
         pimage = process_image(np.copy(image), input_shape)
+        # 预处理方式二
+        # pimage = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # pimage = np.expand_dims(pimage, axis=0)
+
         outs = yolo.predict(pimage)
         if k == 10:
             break
@@ -140,7 +146,12 @@ if __name__ == '__main__':
     for k, filename in enumerate(path_dir):
         image = cv2.imread('images/test/' + filename)
 
+        # 预处理方式一
         pimage = process_image(np.copy(image), input_shape)
+        # 预处理方式二
+        # pimage = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # pimage = np.expand_dims(pimage, axis=0)
+
         outs = yolo.predict(pimage)
         boxes, scores, classes = outs[0][0], outs[1][0], outs[2][0]
 

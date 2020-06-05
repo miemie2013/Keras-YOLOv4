@@ -44,6 +44,16 @@ def decode(conv_output, anchors, stride, num_class):
     return pred_xywh, pred_conf, pred_prob
 
 
+class PreLayer(Layer):
+    def __init__(self):
+        super(PreLayer, self).__init__()
+    def compute_output_shape(self, input_shape):
+        return (None, 416, 416, 3)
+    def call(self, x):
+        x = tf.image.resize_bicubic(x, (416, 416))
+        x = x / 255.0
+        return x
+
 class Mish(Layer):
     def __init__(self):
         super(Mish, self).__init__()
@@ -99,9 +109,14 @@ def YOLOv4(inputs, num_classes, num_anchors, initial_filters=32,
     i512 = i32 * 16
     i1024 = i32 * 32
 
+    if fast:
+        # x = PreLayer()(inputs)
+        x = inputs
+    else:
+        x = inputs
 
     # cspdarknet53部分
-    x = conv2d_unit(inputs, i32, 3, strides=1, padding='same')
+    x = conv2d_unit(x, i32, 3, strides=1, padding='same')
 
     # ============================= s2 =============================
     x = layers.ZeroPadding2D(padding=((1, 0), (1, 0)))(x)
@@ -233,7 +248,6 @@ def YOLOv4(inputs, num_classes, num_anchors, initial_filters=32,
             output = fastnms(all_pred_boxes, all_pred_scores, conf_thresh, nms_thresh, keep_top_k, nms_top_k)
 
             return output
-            # return [all_pred_boxes, all_pred_scores]
         output = layers.Lambda(output_layer)([output_s, output_m, output_l])
         model_body = keras.models.Model(inputs=inputs, outputs=output)
     else:

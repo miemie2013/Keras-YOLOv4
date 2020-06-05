@@ -32,6 +32,8 @@ Pytorch版YOLOv4: 制作中
 
 2020/06/02:支持训练自定义数据集。
 
+2020/06/05:支持yolact中的fastnms。运行demo_fast.py即可体验。
+
 ## FBI WARNING
 
 大部分代码搬运了Keras-DIOU-YOLOv3的代码，除了网络结构大改。YOLOv4的许多料都还没有堆上去，请给我一点时间。
