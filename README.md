@@ -32,7 +32,7 @@ Pytorch版YOLOv4: 制作中
 
 2020/06/02:支持训练自定义数据集。
 
-2020/06/05:支持yolact中的fastnms。运行demo_fast.py即可体验。
+2020/06/05:支持yolact中的fastnms。运行demo_fast.py即可体验。Win10 + cuda9 + 1660Ti(6GB)，用numpy后处理约10FPS，用fastnms约14FPS。 
 
 ## FBI WARNING
 
@@ -40,7 +40,7 @@ Pytorch版YOLOv4: 制作中
 
 ## 需要补充
 
-后处理改为用张量操作实现；更多调优。
+加入YOLOv4中的数据增强；更多调优。
 
 ## 文件下载
 一个没有训练充分的模型step00070000.h5，用6G的卡训练，冻结了conv2d_86之前的层，训练了70000步，
