@@ -124,18 +124,19 @@ if __name__ == '__main__':
 
     path_dir = os.listdir('images/test')
     # warm up
-    for k, filename in enumerate(path_dir):
-        image = cv2.imread('images/test/' + filename)
+    if use_gpu:
+        for k, filename in enumerate(path_dir):
+            image = cv2.imread('images/test/' + filename)
 
-        # 预处理方式一
-        pimage = process_image(np.copy(image), input_shape)
-        # 预处理方式二
-        # pimage = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        # pimage = np.expand_dims(pimage, axis=0)
+            # 预处理方式一
+            pimage = process_image(np.copy(image), input_shape)
+            # 预处理方式二
+            # pimage = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            # pimage = np.expand_dims(pimage, axis=0)
 
-        outs = yolo.predict(pimage)
-        if k == 10:
-            break
+            outs = yolo.predict(pimage)
+            if k == 10:
+                break
 
 
     time_stat = deque(maxlen=20)

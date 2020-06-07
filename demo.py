@@ -74,11 +74,12 @@ if __name__ == '__main__':
 
     path_dir = os.listdir('images/test')
     # warm up
-    for k, filename in enumerate(path_dir):
-        image = cv2.imread('images/test/' + filename)
-        image, boxes, scores, classes = _decode.detect_image(image, draw_image=False)
-        if k == 10:
-            break
+    if use_gpu:
+        for k, filename in enumerate(path_dir):
+            image = cv2.imread('images/test/' + filename)
+            image, boxes, scores, classes = _decode.detect_image(image, draw_image=False)
+            if k == 10:
+                break
 
 
     time_stat = deque(maxlen=20)

@@ -22,11 +22,14 @@ import keras.layers as layers
 import os
 import tensorflow as tf
 from keras import backend as K
+
+from config import TrainConfig
 from model.yolov4 import YOLOv4
 from tools.cocotools import get_classes, catid2clsid, clsid2catid
 from model.decode_np import Decode
 from tools.cocotools import eval
-from tools.transform import random_horizontal_flip, random_crop, random_translate
+from tools.data_process import data_clean, get_samples
+from tools.transform import *
 from pycocotools.coco import COCO
 
 import logging
@@ -198,7 +201,7 @@ def decode(conv_output, anchors, stride, num_class):
     xy_grid = tf.tile(xy_grid[tf.newaxis, :, :, tf.newaxis, :], [batch_size, 1, 1, anchor_per_scale, 1])
     xy_grid = tf.cast(xy_grid, tf.float32)
     pred_xy = (tf.sigmoid(conv_raw_dxdy) + xy_grid) * stride
-    pred_wh = (tf.exp(conv_raw_dwdh) * anchors) * stride
+    pred_wh = (tf.exp(conv_raw_dwdh) * anchors)
     pred_xywh = tf.concat([pred_xy, pred_wh], axis=-1)
     pred_conf = tf.sigmoid(conv_raw_conf)
     pred_prob = tf.sigmoid(conv_raw_prob)
@@ -211,281 +214,56 @@ def yolo_loss(args, num_classes, iou_loss_thresh, anchors):
     label_sbbox = args[3]   # (?, ?, ?, 3, num_classes+5)
     label_mbbox = args[4]   # (?, ?, ?, 3, num_classes+5)
     label_lbbox = args[5]   # (?, ?, ?, 3, num_classes+5)
-    true_sbboxes = args[6]   # (?, 150, 4)
-    true_mbboxes = args[7]   # (?, 150, 4)
-    true_lbboxes = args[8]   # (?, 150, 4)
+    true_bboxes = args[6]   # (?, 50, 4)
     pred_sbbox = decode(conv_sbbox, anchors[0], 8, num_classes)
     pred_mbbox = decode(conv_mbbox, anchors[1], 16, num_classes)
     pred_lbbox = decode(conv_lbbox, anchors[2], 32, num_classes)
-    sbbox_ciou_loss, sbbox_conf_loss, sbbox_prob_loss = loss_layer(conv_sbbox, pred_sbbox, label_sbbox, true_sbboxes, 8, num_classes, iou_loss_thresh)
-    mbbox_ciou_loss, mbbox_conf_loss, mbbox_prob_loss = loss_layer(conv_mbbox, pred_mbbox, label_mbbox, true_mbboxes, 16, num_classes, iou_loss_thresh)
-    lbbox_ciou_loss, lbbox_conf_loss, lbbox_prob_loss = loss_layer(conv_lbbox, pred_lbbox, label_lbbox, true_lbboxes, 32, num_classes, iou_loss_thresh)
+    sbbox_ciou_loss, sbbox_conf_loss, sbbox_prob_loss = loss_layer(conv_sbbox, pred_sbbox, label_sbbox, true_bboxes, 8, num_classes, iou_loss_thresh)
+    mbbox_ciou_loss, mbbox_conf_loss, mbbox_prob_loss = loss_layer(conv_mbbox, pred_mbbox, label_mbbox, true_bboxes, 16, num_classes, iou_loss_thresh)
+    lbbox_ciou_loss, lbbox_conf_loss, lbbox_prob_loss = loss_layer(conv_lbbox, pred_lbbox, label_lbbox, true_bboxes, 32, num_classes, iou_loss_thresh)
 
     ciou_loss = sbbox_ciou_loss + mbbox_ciou_loss + lbbox_ciou_loss
     conf_loss = sbbox_conf_loss + mbbox_conf_loss + lbbox_conf_loss
     prob_loss = sbbox_prob_loss + mbbox_prob_loss + lbbox_prob_loss
     return [ciou_loss, conf_loss, prob_loss]
 
-def image_preporcess(image, target_size, gt_boxes):
-    # 传入训练的图片是rgb格式
-    ih, iw = target_size
-    h, w = image.shape[:2]
-    interps = [   # 随机选一种插值方式
-        cv2.INTER_NEAREST,
-        cv2.INTER_LINEAR,
-        cv2.INTER_AREA,
-        cv2.INTER_CUBIC,
-        cv2.INTER_LANCZOS4,
-    ]
-    method = np.random.choice(interps)   # 随机选一种插值方式
-    scale_x = float(iw) / w
-    scale_y = float(ih) / h
-    image = cv2.resize(image, None, None, fx=scale_x, fy=scale_y, interpolation=method)
 
-    pimage = image.astype(np.float32) / 255.
-    if gt_boxes is None:
-        return pimage
-    else:
-        gt_boxes[:, [0, 2]] = gt_boxes[:, [0, 2]] * scale_x
-        gt_boxes[:, [1, 3]] = gt_boxes[:, [1, 3]] * scale_y
-        return pimage, gt_boxes
-
-def parse_annotation(coco, catid2clsid, img_id, train_input_size, annotation_type, pre_path):
-    img_anno = coco.loadImgs(img_id)[0]
-    im_fname = img_anno['file_name']
-    image_path = pre_path + im_fname
-    image = cv2.imread(image_path)  # BGR mode, but need RGB mode
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # RGB mode
-
-    # 没有标注物品，即每个格子都当作背景处理
-    exist_boxes = True
-    ins_anno_ids = coco.getAnnIds(imgIds=img_id, iscrowd=False)  # 读取这张图片所有标注anno的id
-    if len(ins_anno_ids) == 0:
-        bboxes = np.array([[10, 10, 101, 103]])
-        clss = np.array([0])
-        exist_boxes = False
-    else:
-        instances = coco.loadAnns(ins_anno_ids)  # 这张图片所有标注anno。每个标注有'segmentation'、'bbox'、...
-        bboxes = []
-        clss = []
-        for ins in instances:
-            x1, y1, w, h = ins['bbox']
-            bboxes.append([x1, y1, x1+w, y1+h])
-            cate_id = ins['category_id']
-            clss.append(catid2clsid[cate_id])
-        bboxes = np.array(bboxes)
-        clss = np.array(clss)
-    bboxes = bboxes.astype(np.float32)
-    clss = clss.astype(np.int32)
-    if annotation_type == 'train':
-        # image, bboxes = random_fill(np.copy(image), np.copy(bboxes))    # 数据集缺乏小物体时打开
-        image, bboxes = random_horizontal_flip(np.copy(image), np.copy(bboxes))
-        image, bboxes = random_crop(np.copy(image), np.copy(bboxes))
-        image, bboxes = random_translate(np.copy(image), np.copy(bboxes))
-    image, bboxes = image_preporcess(np.copy(image), [train_input_size, train_input_size], np.copy(bboxes))
-    return image, bboxes, clss, exist_boxes
-
-def bbox_iou_data(boxes1, boxes2):
-    boxes1 = np.array(boxes1)
-    boxes2 = np.array(boxes2)
-    boxes1_area = boxes1[..., 2] * boxes1[..., 3]
-    boxes2_area = boxes2[..., 2] * boxes2[..., 3]
-    boxes1 = np.concatenate([boxes1[..., :2] - boxes1[..., 2:] * 0.5,
-                            boxes1[..., :2] + boxes1[..., 2:] * 0.5], axis=-1)
-    boxes2 = np.concatenate([boxes2[..., :2] - boxes2[..., 2:] * 0.5,
-                            boxes2[..., :2] + boxes2[..., 2:] * 0.5], axis=-1)
-    left_up = np.maximum(boxes1[..., :2], boxes2[..., :2])
-    right_down = np.minimum(boxes1[..., 2:], boxes2[..., 2:])
-    inter_section = np.maximum(right_down - left_up, 0.0)
-    inter_area = inter_section[..., 0] * inter_section[..., 1]
-    union_area = boxes1_area + boxes2_area - inter_area
-    return inter_area / union_area
-
-def preprocess_true_boxes(bboxes, clss, train_output_sizes, strides, num_classes, max_bbox_per_scale, anchors):
-    label = [np.zeros((train_output_sizes[i], train_output_sizes[i], 3,
-                       5 + num_classes)) for i in range(3)]
-    bboxes_xywh = [np.zeros((max_bbox_per_scale, 4)) for _ in range(3)]
-    bbox_count = np.zeros((3,))
-    for k, bbox_coor in enumerate(bboxes):
-        bbox_class_ind = clss[k]
-        onehot = np.zeros(num_classes, dtype=np.float)
-        onehot[bbox_class_ind] = 1.0
-        bbox_xywh = np.concatenate([(bbox_coor[2:] + bbox_coor[:2]) * 0.5, bbox_coor[2:] - bbox_coor[:2]], axis=-1)
-        bbox_xywh_scaled = 1.0 * bbox_xywh[np.newaxis, :] / strides[:, np.newaxis]
-        iou = []
-        for i in range(3):
-            anchors_xywh = np.zeros((3, 4))
-            anchors_xywh[:, 0:2] = np.floor(bbox_xywh_scaled[i, 0:2]).astype(np.int32) + 0.5
-            anchors_xywh[:, 2:4] = anchors[i]
-            iou_scale = bbox_iou_data(bbox_xywh_scaled[i][np.newaxis, :], anchors_xywh)
-            iou.append(iou_scale)
-        best_anchor_ind = np.argmax(np.array(iou).reshape(-1), axis=-1)
-        best_detect = int(best_anchor_ind / 3)
-        best_anchor = int(best_anchor_ind % 3)
-        xind, yind = np.floor(bbox_xywh_scaled[best_detect, 0:2]).astype(np.int32)
-        # 防止越界
-        grid_r = label[best_detect].shape[0]
-        grid_c = label[best_detect].shape[1]
-        xind = max(0, xind)
-        yind = max(0, yind)
-        xind = min(xind, grid_r-1)
-        yind = min(yind, grid_c-1)
-        label[best_detect][yind, xind, best_anchor, :] = 0
-        label[best_detect][yind, xind, best_anchor, 0:4] = bbox_xywh
-        label[best_detect][yind, xind, best_anchor, 4:5] = 1.0
-        label[best_detect][yind, xind, best_anchor, 5:] = onehot
-        bbox_ind = int(bbox_count[best_detect] % max_bbox_per_scale)
-        bboxes_xywh[best_detect][bbox_ind, :4] = bbox_xywh
-        bbox_count[best_detect] += 1
-    label_sbbox, label_mbbox, label_lbbox = label
-    sbboxes, mbboxes, lbboxes = bboxes_xywh
-    return label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes
-
-def multi_thread_read(coco, catid2clsid, batch_img_ids, num, train_input_size, annotation_type, train_output_sizes, strides, num_classes,
-                      max_bbox_per_scale, anchors, batch_image,
-                      batch_label_sbbox, batch_label_mbbox, batch_label_lbbox,
-                      batch_sbboxes, batch_mbboxes, batch_lbboxes, pre_path):
-    image, bboxes, clss, exist_boxes = parse_annotation(coco, catid2clsid, batch_img_ids[num], train_input_size, annotation_type, pre_path)
-    label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = preprocess_true_boxes(bboxes, clss, train_output_sizes,
-                                                                                             strides, num_classes,
-                                                                                             max_bbox_per_scale,
-                                                                                             anchors)
-    batch_image[num, :, :, :] = image
-    if exist_boxes:
-        batch_label_sbbox[num, :, :, :, :] = label_sbbox
-        batch_label_mbbox[num, :, :, :, :] = label_mbbox
-        batch_label_lbbox[num, :, :, :, :] = label_lbbox
-        batch_sbboxes[num, :, :] = sbboxes
-        batch_mbboxes[num, :, :] = mbboxes
-        batch_lbboxes[num, :, :] = lbboxes
-
-def generate_one_batch(coco, catid2clsid, img_ids, step, batch_size, anchors, num_classes, max_bbox_per_scale, pre_path, annotation_type):
-    # 多尺度训练
-    train_input_sizes = [320, 352, 384, 416, 448, 480, 512, 544, 576, 608]
-    train_input_size = random.choice(train_input_sizes)
-    strides = np.array([8, 16, 32])
-
-    # 输出的网格数
-    train_output_sizes = train_input_size // strides
-
-    batch_image = np.zeros((batch_size, train_input_size, train_input_size, 3))
-
-    batch_label_sbbox = np.zeros((batch_size, train_output_sizes[0], train_output_sizes[0],
-                                  3, 5 + num_classes))
-    batch_label_mbbox = np.zeros((batch_size, train_output_sizes[1], train_output_sizes[1],
-                                  3, 5 + num_classes))
-    batch_label_lbbox = np.zeros((batch_size, train_output_sizes[2], train_output_sizes[2],
-                                  3, 5 + num_classes))
-
-    batch_sbboxes = np.zeros((batch_size, max_bbox_per_scale, 4))
-    batch_mbboxes = np.zeros((batch_size, max_bbox_per_scale, 4))
-    batch_lbboxes = np.zeros((batch_size, max_bbox_per_scale, 4))
-
-    batch_img_ids = img_ids[step * batch_size:(step + 1) * batch_size]
-
-    # 单线程
-    # for num in range(batch_size):
-    #     image, bboxes, exist_boxes = parse_annotation(batch[num], train_input_size, annotation_type, pre_path)
-    #     label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = preprocess_true_boxes(bboxes, train_output_sizes, strides, num_classes, max_bbox_per_scale, anchors)
-    #
-    #     batch_image[num, :, :, :] = image
-    #     if exist_boxes:
-    #         batch_label_sbbox[num, :, :, :, :] = label_sbbox
-    #         batch_label_mbbox[num, :, :, :, :] = label_mbbox
-    #         batch_label_lbbox[num, :, :, :, :] = label_lbbox
-    #         batch_sbboxes[num, :, :] = sbboxes
-    #         batch_mbboxes[num, :, :] = mbboxes
-    #         batch_lbboxes[num, :, :] = lbboxes
-
-    # 多线程
-    threads = []
-    for num in range(batch_size):
-        t = threading.Thread(target=multi_thread_read, args=(
-            coco, catid2clsid, batch_img_ids, num, train_input_size, annotation_type, train_output_sizes, strides, num_classes, max_bbox_per_scale,
-            anchors, batch_image,
-            batch_label_sbbox, batch_label_mbbox, batch_label_lbbox,
-            batch_sbboxes, batch_mbboxes, batch_lbboxes, pre_path))
-        threads.append(t)
-        t.start()
-    # 等待所有线程任务结束。
-    for t in threads:
-        t.join()
-
-    return [batch_image, batch_label_sbbox, batch_label_mbbox, batch_label_lbbox, batch_sbboxes, batch_mbboxes, batch_lbboxes], \
-           [np.zeros(batch_size), np.zeros(batch_size), np.zeros(batch_size)]
-
+def multi_thread_op(i, samples, decodeImage, train_dataset, with_mixup, mixupImage,
+                     photometricDistort, randomCrop, randomFlipImage, normalizeBox, padBox, bboxXYXY2XYWH):
+    samples[i] = decodeImage(samples[i], context, train_dataset)
+    if with_mixup:
+        samples[i] = mixupImage(samples[i], context)
+    samples[i] = photometricDistort(samples[i], context)
+    samples[i] = randomCrop(samples[i], context)
+    samples[i] = randomFlipImage(samples[i], context)
+    samples[i] = normalizeBox(samples[i], context)
+    samples[i] = padBox(samples[i], context)
+    samples[i] = bboxXYXY2XYWH(samples[i], context)
 
 if __name__ == '__main__':
-    # 自定义数据集
-    # train_path = 'annotation_json/voc2012_train.json'
-    # val_path = 'annotation_json/voc2012_val.json'
-    # classes_path = 'data/voc_classes.txt'
-    # train_pre_path = '../VOCdevkit/VOC2012/JPEGImages/'   # 训练集图片相对路径
-    # val_pre_path = '../VOCdevkit/VOC2012/JPEGImages/'     # 验证集图片相对路径
+    cfg = TrainConfig()
 
-    # COCO数据集
-    train_path = '../COCO/annotations/instances_train2017.json'
-    val_path = '../COCO/annotations/instances_val2017.json'
-    classes_path = 'data/coco_classes.txt'
-    train_pre_path = '../COCO/train2017/'   # 训练集图片相对路径
-    val_pre_path = '../COCO/val2017/'       # 验证集图片相对路径
-
-
-    class_names = get_classes(classes_path)
+    class_names = get_classes(cfg.classes_path)
     num_classes = len(class_names)
-    anchors = np.array([
-        [[12, 16], [19, 36], [40, 28]],
-        [[36, 75], [76, 55], [72, 146]],
-        [[142, 110], [192, 243], [459, 401]]
-    ])
-    # 一些预处理
-    anchors = anchors.astype(np.float32)
-    anchors[0] /= 8
-    anchors[1] /= 16
-    anchors[2] /= 32
-    num_anchors = len(anchors[0])  # 每个输出层有几个先验框
+    _anchors = copy.deepcopy(cfg.anchors)
+    num_anchors = len(cfg.anchor_masks[0])  # 每个输出层有几个先验框
+    _anchors = np.array(_anchors)
+    _anchors = np.reshape(_anchors, (-1, num_anchors, 2))
+    _anchors = _anchors.astype(np.float32)
 
-    # ========= 一些设置 =========
-    # 每隔几步保存一次模型
-    save_iter = 1000
-    # 每隔几步计算一次eval集的mAP
-    eval_iter = 5000
-    # 训练多少步
-    max_iters = 800000
     # 步id，无需设置，会自动读。
     iter_id = 0
-
-
-    # 验证
-    # input_shape越大，精度会上升，但速度会下降。
-    # input_shape = (320, 320)
-    # input_shape = (416, 416)
-    input_shape = (608, 608)
-    # 验证时的分数阈值和nms_iou阈值
-    conf_thresh = 0.001
-    nms_thresh = 0.45
-    # 是否画出验证集图片
-    draw_image = False
-    # 验证时的批大小
-    eval_batch_size = 4
-
 
     # 多尺度训练
     inputs = layers.Input(shape=(None, None, 3))
     model_body = YOLOv4(inputs, num_classes, num_anchors)
-    _decode = Decode(conf_thresh, nms_thresh, input_shape, model_body, class_names)
+    _decode = Decode(cfg.conf_thresh, cfg.nms_thresh, cfg.input_shape, model_body, class_names)
 
     # 模式。 0-从头训练，1-读取之前的模型继续训练（model_path可以是'yolov4.h5'、'./weights/step00001000.h5'这些。）
-    pattern = 1
-    max_bbox_per_scale = 150
-    iou_loss_thresh = 0.7
+    pattern = cfg.pattern
     if pattern == 1:
-        lr = 0.0001
-        batch_size = 8
-        model_path = 'yolov4.h5'
-        # model_path = './weights/step00001000.h5'
-        model_body.load_weights(model_path, by_name=True, skip_mismatch=True)
-        strs = model_path.split('step')
+        model_body.load_weights(cfg.model_path, by_name=True, skip_mismatch=True)
+        strs = cfg.model_path.split('step')
         if len(strs) == 2:
             iter_id = int(strs[1][:8])
 
@@ -500,34 +278,23 @@ if __name__ == '__main__':
             else:
                 ly.trainable = False
     elif pattern == 0:
-        lr = 0.00001
-        batch_size = 8
+        pass
 
     y_true = [
         layers.Input(name='input_2', shape=(None, None, 3, (num_classes + 5))),  # label_sbbox
         layers.Input(name='input_3', shape=(None, None, 3, (num_classes + 5))),  # label_mbbox
         layers.Input(name='input_4', shape=(None, None, 3, (num_classes + 5))),  # label_lbbox
-        layers.Input(name='input_5', shape=(max_bbox_per_scale, 4)),             # true_sbboxes
-        layers.Input(name='input_6', shape=(max_bbox_per_scale, 4)),             # true_mbboxes
-        layers.Input(name='input_7', shape=(max_bbox_per_scale, 4))              # true_lbboxes
+        layers.Input(name='input_5', shape=(cfg.num_max_boxes, 4)),             # true_bboxes
     ]
     loss_list = layers.Lambda(yolo_loss, name='yolo_loss',
-                           arguments={'num_classes': num_classes, 'iou_loss_thresh': iou_loss_thresh,
-                                      'anchors': anchors})([*model_body.output, *y_true])
+                           arguments={'num_classes': num_classes, 'iou_loss_thresh': cfg.iou_loss_thresh,
+                                      'anchors': _anchors})([*model_body.output, *y_true])
     model = keras.models.Model([model_body.input, *y_true], loss_list)
     model.summary()
     # keras.utils.vis_utils.plot_model(model_body, to_file='yolov4.png', show_shapes=True)
 
-    # 训练集
-    train_dataset = COCO(train_path)
-    train_img_ids = train_dataset.getImgIds()
-    num_train = len(train_img_ids)
-    # 验证集
-    with open(val_path, 'r', encoding='utf-8') as f2:
-        for line in f2:
-            line = line.strip()
-            dataset = json.loads(line)
-            val_images = dataset['images']
+
+    # 种类id
     _catid2clsid = copy.deepcopy(catid2clsid)
     _clsid2catid = copy.deepcopy(clsid2catid)
     if num_classes != 80:   # 如果不是COCO数据集，而是自定义数据集
@@ -536,12 +303,44 @@ if __name__ == '__main__':
         for k in range(num_classes):
             _catid2clsid[k] = k
             _clsid2catid[k] = k
+    # 训练集
+    train_dataset = COCO(cfg.train_path)
+    train_img_ids = train_dataset.getImgIds()
+    train_records = data_clean(train_dataset, train_img_ids, _catid2clsid, cfg.train_pre_path)
+    num_train = len(train_records)
+    train_indexes = [i for i in range(num_train)]
+    # 验证集
+    with open(cfg.val_path, 'r', encoding='utf-8') as f2:
+        for line in f2:
+            line = line.strip()
+            dataset = json.loads(line)
+            val_images = dataset['images']
+
+    batch_size = cfg.batch_size
+    with_mixup = cfg.with_mixup
+    context = cfg.context
+    # 预处理
+    # sample_transforms
+    decodeImage = DecodeImage(with_mixup=with_mixup)   # 对图片解码。最开始的一步。
+    mixupImage = MixupImage()                   # mixup增强
+    photometricDistort = PhotometricDistort()   # 颜色扭曲
+    randomCrop = RandomCrop()                   # 随机裁剪
+    randomFlipImage = RandomFlipImage()         # 随机翻转
+    normalizeBox = NormalizeBox()               # 将物体的左上角坐标、右下角坐标中的横坐标/图片宽、纵坐标/图片高 以归一化坐标。
+    padBox = PadBox(cfg.num_max_boxes)          # 如果gt_bboxes的数量少于num_max_boxes，那么填充坐标是0的bboxes以凑够num_max_boxes。
+    bboxXYXY2XYWH = BboxXYXY2XYWH()             # sample['gt_bbox']被改写为cx_cy_w_h格式。
+    # batch_transforms
+    randomShape = RandomShape()                 # 多尺度训练。随机选一个尺度。也随机选一种插值方式。
+    normalizeImage = NormalizeImage(is_scale=True, is_channel_first=False)  # 图片归一化。直接除以255。
+    gt2YoloTarget = Gt2YoloTarget(cfg.anchors,
+                                  cfg.anchor_masks,
+                                  cfg.downsample_ratios,
+                                  num_classes)             # 填写target0、target1、target2张量。
 
     # 保存模型的目录
     if not os.path.exists('./weights'): os.mkdir('./weights')
 
-    model.compile(loss={'yolo_loss': lambda y_true, y_pred: y_pred}, optimizer=keras.optimizers.Adam(lr=lr))
-
+    model.compile(loss={'yolo_loss': lambda y_true, y_pred: y_pred}, optimizer=keras.optimizers.Adam(lr=cfg.lr))
 
     time_stat = deque(maxlen=20)
     start_time = time.time()
@@ -552,7 +351,7 @@ if __name__ == '__main__':
     best_ap_list = [0.0, 0]  #[map, iter]
     while True:   # 无限个epoch
         # 每个epoch之前洗乱
-        np.random.shuffle(train_img_ids)
+        np.random.shuffle(train_indexes)
         for step in range(train_steps):
             iter_id += 1
 
@@ -561,22 +360,39 @@ if __name__ == '__main__':
             end_time = time.time()
             time_stat.append(end_time - start_time)
             time_cost = np.mean(time_stat)
-            eta_sec = (max_iters - iter_id) * time_cost
+            eta_sec = (cfg.max_iters - iter_id) * time_cost
             eta = str(datetime.timedelta(seconds=int(eta_sec)))
 
-            # train
-            batch_xs, y_true = generate_one_batch(train_dataset, _catid2clsid, train_img_ids, step, batch_size, anchors, num_classes,
-                                                  max_bbox_per_scale, train_pre_path, 'train')
+            # ==================== train ====================
+            samples = get_samples(train_records, train_indexes, step, batch_size, with_mixup)
+            # sample_transforms用多线程
+            threads = []
+            for i in range(batch_size):
+                t = threading.Thread(target=multi_thread_op, args=(i, samples, decodeImage, train_dataset, with_mixup, mixupImage,
+                                                                   photometricDistort, randomCrop, randomFlipImage, normalizeBox, padBox, bboxXYXY2XYWH))
+                threads.append(t)
+                t.start()
+            # 等待所有线程任务结束。
+            for t in threads:
+                t.join()
+
+            # batch_transforms
+            samples = randomShape(samples, context)
+            samples = normalizeImage(samples, context)
+            batch_image, batch_label, batch_gt_bbox = gt2YoloTarget(samples, context)
+
+            batch_xs = [batch_image, batch_label[2], batch_label[1], batch_label[0], batch_gt_bbox]
+            y_true = [np.zeros(batch_size), np.zeros(batch_size), np.zeros(batch_size)]
             losses = model.train_on_batch(batch_xs, y_true)
 
-            # log
+            # ==================== log ====================
             if iter_id % 20 == 0:
                 strs = 'Train iter: {}, all_loss: {:.6f}, ciou_loss: {:.6f}, conf_loss: {:.6f}, prob_loss: {:.6f}, eta: {}'.format(
                     iter_id, losses[0], losses[1], losses[2], losses[3], eta)
                 logger.info(strs)
 
-            # save
-            if iter_id % save_iter == 0:
+            # ==================== save ====================
+            if iter_id % cfg.save_iter == 0:
                 save_path = './weights/step%.8d.h5' % iter_id
                 model.save(save_path)
                 path_dir = os.listdir('./weights')
@@ -592,9 +408,9 @@ if __name__ == '__main__':
                     os.remove('./weights/'+names[i])
                 logger.info('Save model to {}'.format(save_path))
 
-            # eval
-            if iter_id % eval_iter == 0:
-                box_ap = eval(_decode, val_images, val_pre_path, val_path, eval_batch_size, _clsid2catid, draw_image)
+            # ==================== eval ====================
+            if iter_id % cfg.eval_iter == 0:
+                box_ap = eval(_decode, val_images, cfg.val_pre_path, cfg.val_path, cfg.eval_batch_size, _clsid2catid, cfg.draw_image)
                 logger.info("box ap: %.3f" % (box_ap[0], ))
 
                 # 以box_ap作为标准
@@ -606,8 +422,8 @@ if __name__ == '__main__':
                 logger.info("Best test ap: {}, in iter: {}".format(
                     best_ap_list[0], best_ap_list[1]))
 
-            # exit
-            if iter_id == max_iters:
+            # ==================== exit ====================
+            if iter_id == cfg.max_iters:
                 logger.info('Done.')
                 exit(0)
 

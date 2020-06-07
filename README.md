@@ -32,7 +32,9 @@ Pytorch版YOLOv4: 制作中
 
 2020/06/02:支持训练自定义数据集。
 
-2020/06/05:支持yolact中的fastnms。运行demo_fast.py即可体验。Win10 + cuda9 + 1660Ti(6GB)，用numpy后处理约10FPS，用fastnms约14FPS。 
+2020/06/05:支持yolact中的fastnms。运行demo_fast.py即可体验。Win10 + cuda9 + 1660Ti(6GB)，用numpy后处理约10FPS，用fastnms约14FPS。
+
+2020/06/08:引入了百度PaddleDetection的数据预处理方式，使得增加数据增强更灵活，代码结构更清晰。所有与train.py相关的配置参数全部放到了config.py里。
 
 ## FBI WARNING
 
@@ -131,4 +133,4 @@ cv算法交流q群：645796480
 
 
 ## 广告位招租
-可联系微信wer186259
+有偿接私活，可联系微信wer186259，金主快点来吧！
