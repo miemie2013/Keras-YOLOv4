@@ -117,6 +117,6 @@ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.591
 ```
 
 ## Infer
-run demo.py.
+run demo.py.run demo_fast.py.
 
 

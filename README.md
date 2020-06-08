@@ -126,7 +126,7 @@ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.591
 该mAP是test集的结果，也就是大部分检测算法论文的标准指标。有点谜，根据我之前的经验test集的mAP和val集的mAP应该是差不多的。原因已经找到，由于原版YOLO v4使用coco trainval2014进行训练，训练样本中包含部分评估样本，若使用val集会导致精度虚高。
 
 ## 预测
-运行demo.py。
+运行demo.py。运行demo_fast.py。
 
 ## 传送门
 cv算法交流q群：645796480
