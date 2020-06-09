@@ -156,6 +156,12 @@ def loss_layer(conv, pred, label, bboxes, stride, num_class, iou_loss_thresh):
 
     # 2. respond_bbox作为mask，有物体才计算类别loss
     prob_loss = respond_bbox * tf.nn.sigmoid_cross_entropy_with_logits(labels=label_prob, logits=conv_raw_prob)
+    # 等价于
+    # pred_prob = pred[:, :, :, :, 5:]
+    # pos_prob_loss = label_prob * (0 - K.log(pred_prob + 1e-9))
+    # neg_prob_loss = (1 - label_prob) * (0 - K.log(1 - pred_prob + 1e-9))
+    # prob_loss = pos_prob_loss + neg_prob_loss
+
 
     # 3. xxxiou_loss和类别loss比较简单。重要的是conf_loss，是一个focal_loss
     # 分两步：第一步是确定 grid_h * grid_w * 3 个预测框 哪些作为反例；第二步是计算focal_loss。

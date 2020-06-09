@@ -126,10 +126,6 @@ def fastnms(all_pred_boxes, all_pred_scores, conf_thresh, nms_thresh, keep_top_k
     keep = tf.where(conf_scores > conf_thresh)  # 最高分数大与阈值的保留
     keep = tf.reshape(keep, (-1,))  # [-1, ]
 
-    # keep_extra = tf.where(conf_scores < conf_thresh)
-    # keep_extra = keep_extra[:1]
-    # keep = tf.concat([keep, keep_extra], axis=0)
-
     scores = tf.gather(all_pred_scores[0], keep)  # [?, 80]
     scores = tf.transpose(scores, perm=[1, 0])  # [80, ?]
     boxes = tf.gather(all_pred_boxes[0], keep)  # [?, 4]

@@ -769,7 +769,6 @@ class Gt2YoloTarget(BaseOperator):
                         best_n = mask.index(best_idx)
 
                         # x, y, w, h, scale
-                        target[gj, gi, best_n, :] = 0
                         target[gj, gi, best_n, 0] = gx * w
                         target[gj, gi, best_n, 1] = gy * h
                         target[gj, gi, best_n, 2] = gw * w
@@ -796,7 +795,6 @@ class Gt2YoloTarget(BaseOperator):
                                 [0., 0., an_hw[mask_i, 0], an_hw[mask_i, 1]])
                             if iou > self.iou_thresh:
                                 # x, y, w, h, scale
-                                target[gj, gi, idx, :] = 0
                                 target[gj, gi, idx, 0] = gx * w
                                 target[gj, gi, idx, 1] = gy * h
                                 target[gj, gi, idx, 2] = gw * w
