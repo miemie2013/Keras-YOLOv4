@@ -779,7 +779,12 @@ class Gt2YoloTarget(BaseOperator):
                         target[gj, gi, best_n, 4] = score
 
                         # classification
-                        target[gj, gi, best_n, 5 + cls] = 1.
+                        onehot = np.zeros(self.num_classes, dtype=np.float)
+                        onehot[cls] = 1.0
+                        uniform_distribution = np.full(self.num_classes, 1.0 / self.num_classes)
+                        deta = 0.01
+                        smooth_onehot = onehot * (1 - deta) + deta * uniform_distribution
+                        target[gj, gi, best_n, 5:] = smooth_onehot
 
                     # For non-matched anchors, calculate the target if the iou
                     # between anchor and gt is larger than iou_thresh
@@ -801,7 +806,12 @@ class Gt2YoloTarget(BaseOperator):
                                 target[gj, gi, idx, 4] = score
 
                                 # classification
-                                target[gj, gi, idx, 5 + cls] = 1.
+                                onehot = np.zeros(self.num_classes, dtype=np.float)
+                                onehot[cls] = 1.0
+                                uniform_distribution = np.full(self.num_classes, 1.0 / self.num_classes)
+                                deta = 0.01
+                                smooth_onehot = onehot * (1 - deta) + deta * uniform_distribution
+                                target[gj, gi, idx, 5:] = smooth_onehot
                 # sample['target{}'.format(i)] = target
                 batch_label[i][p, :, :, :, :] = target
                 batch_gt_bbox[p, :, :] = gt_bbox * [w, h, w, h]
