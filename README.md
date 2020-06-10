@@ -40,7 +40,8 @@ Paddle镜像版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
 
 2020/06/08:引入了百度PaddleDetection的数据预处理方式，使得增加数据增强更灵活，代码结构更清晰。所有与train.py相关的配置参数全部放到了config.py里。
 
-2020/06/10:更新Paddle镜像版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4，从此GPU不求人，快去AIStudio训练自己的YOLOv4、验证想法吧！
+2020/06/10:更新Paddle镜像版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
+，从此GPU不求人，快去AIStudio训练自己的YOLOv4、验证想法吧！
 
 ## 需要补充
 
