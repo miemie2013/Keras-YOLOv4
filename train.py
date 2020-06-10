@@ -234,7 +234,7 @@ def yolo_loss(args, num_classes, iou_loss_thresh, anchors):
     return [ciou_loss, conf_loss, prob_loss]
 
 
-def multi_thread_op(i, samples, decodeImage, train_dataset, with_mixup, mixupImage,
+def multi_thread_op(i, samples, decodeImage, context, train_dataset, with_mixup, mixupImage,
                      photometricDistort, randomCrop, randomFlipImage, normalizeBox, padBox, bboxXYXY2XYWH):
     samples[i] = decodeImage(samples[i], context, train_dataset)
     if with_mixup:
@@ -374,7 +374,7 @@ if __name__ == '__main__':
             # sample_transforms用多线程
             threads = []
             for i in range(batch_size):
-                t = threading.Thread(target=multi_thread_op, args=(i, samples, decodeImage, train_dataset, with_mixup, mixupImage,
+                t = threading.Thread(target=multi_thread_op, args=(i, samples, decodeImage, context, train_dataset, with_mixup, mixupImage,
                                                                    photometricDistort, randomCrop, randomFlipImage, normalizeBox, padBox, bboxXYXY2XYWH))
                 threads.append(t)
                 t.start()
