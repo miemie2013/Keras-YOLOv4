@@ -24,6 +24,8 @@ Keras version YOLOv4: https://github.com/miemie2013/Keras-YOLOv4
 
 Pytorch version YOLOv4: coming soon...
 
+PaddlePaddle version YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
+
 ## Updates
 
 2020/05/20:This is the first time I met you.
@@ -33,6 +35,9 @@ Pytorch version YOLOv4: coming soon...
 2020/06/05:Support fastnms mentioned in yolact.Run demo_fast.py for a try. Win10 + cuda9 + 1660Ti(6GB)，about 10 FPS if you use numpy, about 14 FPS if you use fastnms.
 
 2020/06/08:Copy some codes from PaddleDetection.
+
+2020/06/10:PaddlePaddle version YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4,
+You can get a free Tesla V100 to train Paddle-YOLOv4 in Baidu AIStudio.
 
 ## Something I wanna do
 
