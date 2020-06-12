@@ -28,7 +28,7 @@ Keras版YOLOv4: https://github.com/miemie2013/Keras-YOLOv4
 
 Pytorch版YOLOv4: 制作中
 
-Paddle镜像版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
+Paddle版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
 
 ## 更新日记
 
@@ -46,6 +46,10 @@ Paddle镜像版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
 ## 需要补充
 
 加入YOLOv4中的数据增强和其余的tricks；更多调优。
+
+## 环境搭建
+
+需要安装cuda9，其余见requirements.txt。预计可能会升级到tf2、cuda10。
 
 ## 文件下载
 一个没有训练充分的模型step00070000.h5，用6G的卡训练，冻结了conv2d_86之前的层，训练了70000步，

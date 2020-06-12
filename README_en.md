@@ -43,6 +43,10 @@ You can get a free Tesla V100 to train Paddle-YOLOv4 in Baidu AIStudio.
 
 add the rest tricks mentioned in YOLOv4.Oh, my terrible English.
 
+## Installation
+
+You need to install cuda9, other requirements please refer to requirements.txt. I may update this repo to tf2 and cuda10.
+
 ## Model Zoo
 A poorly trained model step00070000.h5, I train it with a 6GB GPU, with freezing the layers before conv2d_86,I train it 70000 steps.
 
