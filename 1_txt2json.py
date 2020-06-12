@@ -97,7 +97,7 @@ if __name__ == '__main__':
             h = y2 - y1
             anno = {
                 'segmentation': [[]],
-                'area': 3.14,
+                'area': w*h,
                 'iscrowd': 0,
                 'image_id': im_id,
                 'bbox': [x1, y1, w, h],
@@ -145,7 +145,7 @@ if __name__ == '__main__':
             h = y2 - y1
             anno = {
                 'segmentation': [[]],
-                'area': 3.14,
+                'area': w*h,
                 'iscrowd': 0,
                 'image_id': im_id,
                 'bbox': [x1, y1, w, h],
