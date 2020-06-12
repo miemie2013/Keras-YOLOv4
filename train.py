@@ -110,7 +110,7 @@ def bbox_ciou(boxes1, boxes2):
 def bbox_iou(boxes1, boxes2):
     '''
     预测框          boxes1 (?, grid_h, grid_w, 3,   1, 4)，神经网络的输出(tx, ty, tw, th)经过了后处理求得的(bx, by, bw, bh)
-    图片中所有的gt  boxes2 (?,      1,      1, 1, 150, 4)
+    图片中所有的gt  boxes2 (?,      1,      1, 1, 70, 4)
     '''
     boxes1_area = boxes1[..., 2] * boxes1[..., 3]  # 所有格子的3个预测框的面积
     boxes2_area = boxes2[..., 2] * boxes2[..., 3]  # 所有ground truth的面积
@@ -121,14 +121,14 @@ def bbox_iou(boxes1, boxes2):
     boxes2 = tf.concat([boxes2[..., :2] - boxes2[..., 2:] * 0.5,
                         boxes2[..., :2] + boxes2[..., 2:] * 0.5], axis=-1)
 
-    # 所有格子的3个预测框 分别 和  150个ground truth  计算iou。 所以left_up和right_down的shape = (?, grid_h, grid_w, 3, 150, 2)
+    # 所有格子的3个预测框 分别 和  70个ground truth  计算iou。 所以left_up和right_down的shape = (?, grid_h, grid_w, 3, 70, 2)
     left_up = tf.maximum(boxes1[..., :2], boxes2[..., :2])  # 相交矩形的左上角坐标
     right_down = tf.minimum(boxes1[..., 2:], boxes2[..., 2:])  # 相交矩形的右下角坐标
 
-    inter_section = tf.maximum(right_down - left_up, 0.0)  # 相交矩形的w和h，是负数时取0     (?, grid_h, grid_w, 3, 150, 2)
-    inter_area = inter_section[..., 0] * inter_section[..., 1]  # 相交矩形的面积            (?, grid_h, grid_w, 3, 150)
-    union_area = boxes1_area + boxes2_area - inter_area  # union_area      (?, grid_h, grid_w, 3, 150)
-    iou = 1.0 * inter_area / union_area  # iou                             (?, grid_h, grid_w, 3, 150)
+    inter_section = tf.maximum(right_down - left_up, 0.0)  # 相交矩形的w和h，是负数时取0     (?, grid_h, grid_w, 3, 70, 2)
+    inter_area = inter_section[..., 0] * inter_section[..., 1]  # 相交矩形的面积            (?, grid_h, grid_w, 3, 70)
+    union_area = boxes1_area + boxes2_area - inter_area  # union_area      (?, grid_h, grid_w, 3, 70)
+    iou = 1.0 * inter_area / union_area  # iou                             (?, grid_h, grid_w, 3, 70)
     return iou
 
 def loss_layer(conv, pred, label, bboxes, stride, num_class, iou_loss_thresh):
@@ -164,16 +164,16 @@ def loss_layer(conv, pred, label, bboxes, stride, num_class, iou_loss_thresh):
     # prob_loss = prob_mask * (prob_pos_loss + prob_neg_loss)
 
 
-    # 3. xxxiou_loss和类别loss比较简单。重要的是conf_loss，是一个focal_loss
-    # 分两步：第一步是确定 grid_h * grid_w * 3 个预测框 哪些作为反例；第二步是计算focal_loss。
+    # 3. xxxiou_loss和类别loss比较简单。重要的是conf_loss，是一个二值交叉熵损失
+    # 分两步：第一步是确定 grid_h * grid_w * 3 个预测框 哪些作为反例；第二步是计算二值交叉熵损失。
     expand_pred_xywh = pred_xywh[:, :, :, :, np.newaxis, :]  # 扩展为(?, grid_h, grid_w, 3,   1, 4)
-    expand_bboxes = bboxes[:, np.newaxis, np.newaxis, np.newaxis, :, :]  # 扩展为(?,      1,      1, 1, 150, 4)
-    iou = bbox_iou(expand_pred_xywh, expand_bboxes)  # 所有格子的3个预测框 分别 和  150个ground truth  计算iou。   (?, grid_h, grid_w, 3, 150)
-    max_iou = tf.expand_dims(tf.reduce_max(iou, axis=-1), axis=-1)  # 与150个ground truth的iou中，保留最大那个iou。  (?, grid_h, grid_w, 3, 1)
+    expand_bboxes = bboxes[:, np.newaxis, np.newaxis, np.newaxis, :, :]  # 扩展为(?,      1,      1, 1, 70, 4)
+    iou = bbox_iou(expand_pred_xywh, expand_bboxes)  # 所有格子的3个预测框 分别 和  70个ground truth  计算iou。   (?, grid_h, grid_w, 3, 70)
+    max_iou = tf.expand_dims(tf.reduce_max(iou, axis=-1), axis=-1)  # 与70个ground truth的iou中，保留最大那个iou。  (?, grid_h, grid_w, 3, 1)
 
     # respond_bgd代表  这个分支输出的 grid_h * grid_w * 3 个预测框是否是 反例（背景）
-    # label有物体，respond_bgd是0。 没物体的话：如果和某个gt(共150个)的iou超过iou_loss_thresh，respond_bgd是0；如果和所有gt(最多150个)的iou都小于iou_loss_thresh，respond_bgd是1。
-    # respond_bgd是0代表有物体，不是反例；  权重respond_bgd是1代表没有物体，是反例。
+    # label有物体，respond_bgd是0。 没物体的话：如果和某个gt(共70个)的iou超过iou_loss_thresh，respond_bgd是0；如果和所有gt(最多70个)的iou都小于iou_loss_thresh，respond_bgd是1。
+    # respond_bgd是0代表有物体，不是反例（或者是忽略框）；  权重respond_bgd是1代表没有物体，是反例。
     # 有趣的是，模型训练时由于不断更新，对于同一张图片，两次预测的 grid_h * grid_w * 3 个预测框（对于这个分支输出）  是不同的。用的是这些预测框来与gt计算iou来确定哪些预测框是反例。
     # 而不是用固定大小（不固定位置）的先验框。
     respond_bgd = (1.0 - respond_bbox) * tf.cast(max_iou < iou_loss_thresh, tf.float32)
