@@ -79,7 +79,7 @@ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.639
 
 ## 我是如何做到43.4mAP（val2017）的
 我用了Paddle版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
-来进行训练，这个仓库也是我写的，是这个Keras版本的等价版本，代码代码有很多相似处。
+来进行训练，这个仓库也是我写的，是这个Keras版本的等价版本，代码有很多相似处。
 当你在AIStudio抢到32GB显卡时，可以开batch_size=8；当你在AIStudio抢到16GB显卡时，可以开batch_size=4。
 我在开batch_size=8，不冻结任何层的情况下，训练了245000步之后（中间有把学习率降低到0.00001），得到如下结果：
 ```
