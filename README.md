@@ -43,6 +43,9 @@ Paddle版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
 2020/06/10:更新Paddle镜像版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
 ，从此GPU不求人，快去AIStudio训练自己的YOLOv4、验证想法吧！
 
+2020/06/18:经过验证，Paddle镜像版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
+，可以刷到43.4mAP（不冻结任何层的情况下），赶紧star我的Paddle版YOLOv4，去AIStudio抢显卡训练吧！
+
 ## 需要补充
 
 加入YOLOv4中的数据增强和其余的tricks；更多调优。
@@ -74,6 +77,26 @@ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.639
 ```
 追求更高的精度，你需要把冻结层的代码删除，也就是train.py中ly.trainable = False那一部分。但是需要你有一块高显存的显卡。
 
+## 我是如何做到43.4mAP（val2017）的
+我用了Paddle版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
+来进行训练，这个仓库也是我写的，是这个Keras版本的等价版本，代码代码有很多相似处。
+当你在AIStudio抢到32GB显卡时，可以开batch_size=8；当你在AIStudio抢到16GB显卡时，可以开batch_size=4。
+我在开batch_size=8，不冻结任何层的情况下，训练了245000步之后（中间有把学习率降低到0.00001），得到如下结果：
+```
+Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.434
+Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.661
+Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.472
+Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.279
+Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.486
+Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.539
+Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.330
+Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.529
+Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.561
+Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.403
+Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.609
+Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.665
+```
+还等什么，赶紧star我的Paddle版YOLOv4，去AIStudio抢显卡训练吧！
 
 ## 训练
 下载我从Tianxiaomo的仓库保存下来的pytorch模型yolov4.pt
