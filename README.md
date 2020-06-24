@@ -30,6 +30,8 @@ Pytorch版YOLOv4: 制作中
 
 Paddle版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
 
+Keras版SOLO: https://github.com/miemie2013/Keras-SOLO
+
 ## 更新日记
 
 2020/05/20:初次见面
