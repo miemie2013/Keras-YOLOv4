@@ -32,6 +32,8 @@ Paddle版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
 
 Keras版SOLO: https://github.com/miemie2013/Keras-SOLO
 
+Paddle版SOLO: https://github.com/miemie2013/Paddle-SOLO
+
 ## 更新日记
 
 2020/05/20:初次见面

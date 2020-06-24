@@ -28,6 +28,8 @@ PaddlePaddle version YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
 
 Keras version SOLO: https://github.com/miemie2013/Keras-SOLO
 
+Paddle version SOLO: https://github.com/miemie2013/Paddle-SOLO
+
 ## Updates
 
 2020/05/20:This is the first time I met you.
