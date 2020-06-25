@@ -113,6 +113,8 @@ if __name__ == '__main__':
     yolo = YOLOv4(inputs, num_classes, num_anchors, initial_filters, True, anchors, conf_thresh, nms_thresh, keep_top_k, nms_top_k)
     yolo.load_weights(model_path, by_name=True)
 
+    if not os.path.exists('images/res/'): os.mkdir('images/res/')
+
     # 定义颜色
     hsv_tuples = [(1.0 * x / num_classes, 1., 1.) for x in range(num_classes)]
     colors = list(map(lambda x: colorsys.hsv_to_rgb(*x), hsv_tuples))

@@ -71,6 +71,8 @@ if __name__ == '__main__':
 
     _decode = Decode(conf_thresh, nms_thresh, input_shape, yolo, all_classes)
 
+    if not os.path.exists('images/res/'): os.mkdir('images/res/')
+
 
     path_dir = os.listdir('images/test')
     # warm up
