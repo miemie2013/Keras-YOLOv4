@@ -34,6 +34,10 @@ Keras版SOLO: https://github.com/miemie2013/Keras-SOLO
 
 Paddle版SOLO: https://github.com/miemie2013/Paddle-SOLO
 
+## 技术博客
+
+https://blog.csdn.net/qq_27311165
+
 ## 更新日记
 
 2020/05/20:初次见面
