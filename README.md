@@ -34,9 +34,15 @@ Keras版SOLO: https://github.com/miemie2013/Keras-SOLO
 
 Paddle版SOLO: https://github.com/miemie2013/Paddle-SOLO
 
-## 技术博客
+## 《纯python实现一个深度学习框架》
 
-https://blog.csdn.net/qq_27311165
+大家好！为了帮助大家更好地理解深度学习底层的计算细节，本人决定开设一门《纯python实现一个深度学习框架》课程，以视频方式放送。
+目前项目的源代码正在编写中，纯python+numpy。为了验证结果的正确性，本人将会拿它的结果与百度飞桨的结果进行校验。
+本人西瓜视频账号：https://www.ixigua.com/home/2088721227199148
+本人B站账号：https://space.bilibili.com/628382224/
+本人微信公众号：miemie_2013
+Q群：645796480
+会在这两个视频账号放送，快来点关注吧！
 
 ## 更新日记
 
@@ -184,6 +190,10 @@ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.591
 cv算法交流q群：645796480
 但是关于仓库的疑问尽量在Issues上提，避免重复解答。
 
+本人西瓜视频账号：https://www.ixigua.com/home/2088721227199148
+本人B站账号：https://space.bilibili.com/628382224/
+本人微信公众号：miemie_2013
+技术博客：https://blog.csdn.net/qq_27311165
 
 ## 广告位招租
 有偿接私活，可联系微信wer186259，金主快点来吧！
