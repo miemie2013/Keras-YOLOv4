@@ -176,6 +176,9 @@ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.591
 ## 预测
 运行demo.py。运行demo_fast.py。
 
+## 预测视频
+运行demo_video.py。（按esc键停止播放）
+
 ## 传送门
 cv算法交流q群：645796480
 但是关于仓库的疑问尽量在Issues上提，避免重复解答。

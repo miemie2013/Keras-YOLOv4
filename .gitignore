@@ -12,6 +12,7 @@ __pycache__/
 /eval_results/
 /results/
 /weights/
+/video_out/
 /annotation_json/
 /model/__pycache__/
 
