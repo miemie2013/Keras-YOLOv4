@@ -47,9 +47,6 @@ Paddle版SOLO: https://github.com/miemie2013/Paddle-SOLO
 2020/06/10:更新Paddle镜像版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
 ，从此GPU不求人，快去AIStudio训练自己的YOLOv4、验证想法吧！
 
-2020/06/18:经过验证，Paddle镜像版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
-，可以刷到43.4mAP（不冻结任何层的情况下），赶紧star我的Paddle版YOLOv4，去AIStudio抢显卡训练吧！
-
 2020/08/19:经过仔细核对yolov4原始配置文件，发现网络部分写错了，现已修正。运行1_pytorch2keras.py后再运行eval.py，获得mAP=0.479。（该mAP是COCO val2017的精度）
 
 ## 需要补充
