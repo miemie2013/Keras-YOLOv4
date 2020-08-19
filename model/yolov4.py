@@ -126,51 +126,51 @@ def YOLOv4(inputs, num_classes, num_anchors, initial_filters=32,
     x = stack_residual_block(x, i32, i64, n=1)
     x = conv2d_unit(x, i64, 1, strides=1)
     x = layers.Concatenate()([x, s2])
-    x = conv2d_unit(x, i64, 1, strides=1)
+    s2 = conv2d_unit(x, i64, 1, strides=1)
 
     # ============================= s4 =============================
-    x = layers.ZeroPadding2D(padding=((1, 0), (1, 0)))(x)
+    x = layers.ZeroPadding2D(padding=((1, 0), (1, 0)))(s2)
     x = conv2d_unit(x, i128, 3, strides=2)
     s4 = conv2d_unit(x, i64, 1, strides=1)
     x = conv2d_unit(x, i64, 1, strides=1)
     x = stack_residual_block(x, i64, i64, n=2)
     x = conv2d_unit(x, i64, 1, strides=1)
     x = layers.Concatenate()([x, s4])
-    x = conv2d_unit(x, i128, 1, strides=1)
+    s4 = conv2d_unit(x, i128, 1, strides=1)
 
     # ============================= s8 =============================
-    x = layers.ZeroPadding2D(padding=((1, 0), (1, 0)))(x)
+    x = layers.ZeroPadding2D(padding=((1, 0), (1, 0)))(s4)
     x = conv2d_unit(x, i256, 3, strides=2)
     s8 = conv2d_unit(x, i128, 1, strides=1)
     x = conv2d_unit(x, i128, 1, strides=1)
     x = stack_residual_block(x, i128, i128, n=8)
     x = conv2d_unit(x, i128, 1, strides=1)
-    s8 = layers.Concatenate()([x, s8])
-    x = conv2d_unit(s8, i256, 1, strides=1)
+    x = layers.Concatenate()([x, s8])
+    s8 = conv2d_unit(x, i256, 1, strides=1)
 
     # ============================= s16 =============================
-    x = layers.ZeroPadding2D(padding=((1, 0), (1, 0)))(x)
+    x = layers.ZeroPadding2D(padding=((1, 0), (1, 0)))(s8)
     x = conv2d_unit(x, i512, 3, strides=2)
     s16 = conv2d_unit(x, i256, 1, strides=1)
     x = conv2d_unit(x, i256, 1, strides=1)
     x = stack_residual_block(x, i256, i256, n=8)
     x = conv2d_unit(x, i256, 1, strides=1)
-    s16 = layers.Concatenate()([x, s16])
-    x = conv2d_unit(s16, i512, 1, strides=1)
+    x = layers.Concatenate()([x, s16])
+    s16 = conv2d_unit(x, i512, 1, strides=1)
 
     # ============================= s32 =============================
-    x = layers.ZeroPadding2D(padding=((1, 0), (1, 0)))(x)
+    x = layers.ZeroPadding2D(padding=((1, 0), (1, 0)))(s16)
     x = conv2d_unit(x, i1024, 3, strides=2)
     s32 = conv2d_unit(x, i512, 1, strides=1)
     x = conv2d_unit(x, i512, 1, strides=1)
     x = stack_residual_block(x, i512, i512, n=4)
     x = conv2d_unit(x, i512, 1, strides=1)
     x = layers.Concatenate()([x, s32])
-    x = conv2d_unit(x, i1024, 1, strides=1)
+    s32 = conv2d_unit(x, i1024, 1, strides=1)
     # cspdarknet53部分结束
 
     # fpn部分
-    x = conv2d_unit(x, i512, 1, strides=1, act='leaky')
+    x = conv2d_unit(s32, i512, 1, strides=1, act='leaky')
     x = conv2d_unit(x, i1024, 3, strides=1, padding='same', act='leaky')
     x = conv2d_unit(x, i512, 1, strides=1, act='leaky')
     x = spp(x)

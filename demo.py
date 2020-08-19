@@ -45,8 +45,8 @@ if __name__ == '__main__':
     # classes_path = 'data/voc_classes.txt'
     classes_path = 'data/coco_classes.txt'
     # model_path可以是'yolov4.h5'、'./weights/step00001000.h5'这些。
-    # model_path = 'yolov4.h5'
-    model_path = './weights/step00070000.h5'
+    model_path = 'yolov4.h5'
+    # model_path = './weights/step00070000.h5'
 
     # input_shape越大，精度会上升，但速度会下降。
     # input_shape = (320, 320)
