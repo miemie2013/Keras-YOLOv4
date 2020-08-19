@@ -179,6 +179,7 @@ def YOLOv4(inputs, num_classes, num_anchors, initial_filters=32,
     x = conv2d_unit(x, i1024, 3, strides=1, padding='same', act='leaky')
     fpn_s32 = conv2d_unit(x, i512, 1, strides=1, act='leaky')
 
+    # pan01
     x = conv2d_unit(fpn_s32, i256, 1, strides=1, act='leaky')
     x = layers.UpSampling2D(2)(x)
     s16 = conv2d_unit(s16, i256, 1, strides=1, act='leaky')
@@ -188,22 +189,25 @@ def YOLOv4(inputs, num_classes, num_anchors, initial_filters=32,
     x = conv2d_unit(x, i256, 1, strides=1, act='leaky')
     x = conv2d_unit(x, i512, 3, strides=1, padding='same', act='leaky')
     fpn_s16 = conv2d_unit(x, i256, 1, strides=1, act='leaky')
+    # pan01结束
 
+    # pan02
     x = conv2d_unit(fpn_s16, i128, 1, strides=1, act='leaky')
     x = layers.UpSampling2D(2)(x)
     s8 = conv2d_unit(s8, i128, 1, strides=1, act='leaky')
     x = layers.Concatenate()([s8, x])
+    x = conv2d_unit(x, i128, 1, strides=1, act='leaky')
+    x = conv2d_unit(x, i256, 3, strides=1, padding='same', act='leaky')
+    x = conv2d_unit(x, i128, 1, strides=1, act='leaky')
+    x = conv2d_unit(x, i256, 3, strides=1, padding='same', act='leaky')
+    x = conv2d_unit(x, i128, 1, strides=1, act='leaky')
+    # pan02结束
 
-    # output_s
-    x = conv2d_unit(x, i128, 1, strides=1, act='leaky')
-    x = conv2d_unit(x, i256, 3, strides=1, padding='same', act='leaky')
-    x = conv2d_unit(x, i128, 1, strides=1, act='leaky')
-    x = conv2d_unit(x, i256, 3, strides=1, padding='same', act='leaky')
-    x = conv2d_unit(x, i128, 1, strides=1, act='leaky')
+    # output_s, 不用concat()
     output_s = conv2d_unit(x, i256, 3, strides=1, padding='same', act='leaky')
     output_s = conv2d_unit(output_s, num_anchors * (num_classes + 5), 1, strides=1, bn=0, act=None)
 
-    # output_m
+    # output_m, 需要concat()
     x = layers.ZeroPadding2D(padding=((1, 0), (1, 0)))(x)
     x = conv2d_unit(x, i256, 3, strides=2, act='leaky')
     x = layers.Concatenate()([x, fpn_s16])
@@ -215,7 +219,7 @@ def YOLOv4(inputs, num_classes, num_anchors, initial_filters=32,
     output_m = conv2d_unit(x, i512, 3, strides=1, padding='same', act='leaky')
     output_m = conv2d_unit(output_m, num_anchors * (num_classes + 5), 1, strides=1, bn=0, act=None)
 
-    # output_l
+    # output_l, 需要concat()
     x = layers.ZeroPadding2D(padding=((1, 0), (1, 0)))(x)
     x = conv2d_unit(x, i512, 3, strides=2, act='leaky')
     x = layers.Concatenate()([x, fpn_s32])
