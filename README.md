@@ -24,11 +24,11 @@ PaddlePaddle完美复刻版版yolact: https://github.com/miemie2013/PaddlePaddle
 
 yolov3魔改成yolact: https://github.com/miemie2013/yolact
 
-Keras版YOLOv4: https://github.com/miemie2013/Keras-YOLOv4
+Keras版YOLOv4: https://github.com/miemie2013/Keras-YOLOv4 (mAP 41%+)
 
-Pytorch版YOLOv4: 制作中
+Pytorch版YOLOv4: https://github.com/miemie2013/Pytorch-YOLOv4 (mAP 41%+)
 
-Paddle版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4
+Paddle版YOLOv4：https://github.com/miemie2013/Paddle-YOLOv4 (mAP 41%+)
 
 Keras版SOLO: https://github.com/miemie2013/Keras-SOLO
 
