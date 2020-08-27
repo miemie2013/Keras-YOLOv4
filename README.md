@@ -34,6 +34,8 @@ Keras版SOLO: https://github.com/miemie2013/Keras-SOLO
 
 Paddle版SOLO: https://github.com/miemie2013/Paddle-SOLO
 
+Pytorch版FCOS: https://github.com/miemie2013/Pytorch-FCOS
+
 ## 更新日记
 
 2020/05/20:初次见面
