@@ -133,5 +133,9 @@ AIStudio主页：[asasasaaawws](https://aistudio.baidu.com/aistudio/personalcent
 
 欢迎在GitHub或AIStudio上关注我（求粉）~
 
-## 广告位招租
-有偿接私活，可联系微信wer186259，金主快点来吧！
+## 打赏
+
+如果你觉得这个仓库对你很有帮助，可以给我打钱↓
+![Example 0](weixin/sk.png)
+
+咩酱爱你哟！另外，有偿接私活，可联系微信wer186259，金主快点来吧！
