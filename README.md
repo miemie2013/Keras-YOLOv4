@@ -38,7 +38,7 @@ Keras版CartoonGAN: https://github.com/miemie2013/keras_CartoonGAN
 
 纯python实现一个深度学习框架: https://github.com/miemie2013/Pure_Python_Deep_Learning
 
-Pytorch版PPYOLO: https://github.com/miemie2013/Pytorch-PPYOLO
+Pytorch版PPYOLO: https://github.com/miemie2013/Pytorch-PPYOLO (mAP 44.8%)
 
 ## 更新日记
 
