@@ -66,7 +66,6 @@ class Decode(object):
     def detect_video(self, video):
         video_path = os.path.join("videos", "test", video)
         camera = cv2.VideoCapture(video_path)
-        cv2.namedWindow("detection", cv2.WINDOW_AUTOSIZE)
 
         # Prepare for saving the detected video
         sz = (int(camera.get(cv2.CAP_PROP_FRAME_WIDTH)),
@@ -82,7 +81,8 @@ class Decode(object):
             if not res:
                 break
 
-            image = self.detect_image(frame)
+            image, _, _, _ = self.detect_image(frame, True)
+            cv2.namedWindow("detection", cv2.WINDOW_AUTOSIZE)
             cv2.imshow("detection", image)
 
             # Save the video frame by frame
