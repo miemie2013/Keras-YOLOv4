@@ -2,6 +2,15 @@
 
 # Keras-YOLOv4
 
+## 咩酱力荐
+
+## Keras版PPYOLO和YOLOv4：https://github.com/miemie2013/Keras-PPYOLO-YOLOv4 (mAP 45.1%)
+
+## 咩酱的呕心沥血之作。本仓库没有的部分（多线程异步读取数据，训练速度比本仓库提高30%、支持批预测批nms、支持matrix_nms、支持可变形卷积DCNv2，支持DropBlock等），该仓库都有了实现。
+## 总之，该仓库有很多黑科技技术，欢迎大家多点star，这么优秀的仓库应该让更多人看见。
+
+
+
 ## 概述
 今天是2020.05.20，脱单太难了！
 

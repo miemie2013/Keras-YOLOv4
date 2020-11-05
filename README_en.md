@@ -2,6 +2,17 @@ English | [简体中文](README.md)
 
 # Keras-YOLOv4
 
+
+## Recommend
+
+Keras version PPYOLO and YOLOv4：https://github.com/miemie2013/Keras-PPYOLO-YOLOv4 (mAP 45.1%)
+
+This is a work of my heart and soul. The part that this repo does not have (multi thread asynchronous reading data, training speed is 30% higher than this repo, support batch NMS, support matrix_NMS, support deformable convolution dcnv2, support dropblock and so on).
+
+In a word, Keras-PPYOLO-YOLOv4 has a lot of black technology. Welcome to star Keras-PPYOLO-YOLOv4. Such an excellent r should be seen by more people.
+
+
+
 ## Introduction
 YOu can train this yolov4 with a 6GB memory GPU with freeze some layers.
 

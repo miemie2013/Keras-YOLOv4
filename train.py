@@ -277,7 +277,8 @@ if __name__ == '__main__':
         # 冻结，使得需要的显存减少。6G的卡建议这样配置。11G的卡建议不冻结。
         # freeze_before = 'conv2d_60'
         # freeze_before = 'conv2d_72'
-        freeze_before = 'conv2d_86'
+        freeze_before = 'conv2d_73'
+        # freeze_before = 'conv2d_86'
         for i in range(len(model_body.layers)):
             ly = model_body.layers[i]
             if ly.name == freeze_before:
@@ -297,7 +298,7 @@ if __name__ == '__main__':
                            arguments={'num_classes': num_classes, 'iou_loss_thresh': cfg.iou_loss_thresh,
                                       'anchors': _anchors})([*model_body.output, *y_true])
     model = keras.models.Model([model_body.input, *y_true], loss_list)
-    model.summary()
+    model.summary(line_length=130)
     # keras.utils.vis_utils.plot_model(model_body, to_file='yolov4.png', show_shapes=True)
 
 
