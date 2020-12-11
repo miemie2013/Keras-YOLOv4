@@ -17,8 +17,14 @@ __pycache__/
 /model/__pycache__/
 
 
-yolov4.pt
-yolov4.h5
+
+*.pdparams
+*.npz
+*.zip
+*.log
+*.pt
+*.h5
 
 
 
+*.py___jb_tmp___
