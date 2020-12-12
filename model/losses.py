@@ -300,7 +300,7 @@ class YOLOv3Loss(object):
         #    and gt bbox in each sample
         def _process_sample(args):
             pred, gt = args
-            # pred:   [50, 4]
+            # pred:   [3*13*13, 4]
             # gt:     [50, 4]
 
             def box_xywh2xyxy(box):
@@ -326,22 +326,25 @@ class YOLOv3Loss(object):
         # 3. Get iou_mask by IoU between gt bbox and prediction bbox,
         #    Get obj_mask by tobj(holds gt_score), calculate objectness loss
         max_iou = tf.reduce_max(iou, axis=[-1, ])   # [bz, 3*13*13]   预测框与所有gt最高的iou
-        iou_mask = tf.cast(max_iou <= ignore_thresh, tf.float32)   # [bz, 3*13*13]  负样本和忽略样本处为1
+        iou_mask = tf.cast(max_iou <= ignore_thresh, tf.float32)   # [bz, 3*13*13]   候选负样本处为1
         if self.match_score:
             max_prob = tf.reduce_max(prob, axis=[-1, ])   # [bz, 3*13*13]   预测框所有类别最高分数
             iou_mask = iou_mask * tf.cast(max_prob <= 0.25, tf.float32)   # 最高分数低于0.25的预测框，被视作负样本或者忽略样本，虽然在训练初期该分数不可信。
         output_shape = tf.shape(output)
         an_num = len(anchors) // 2
-        iou_mask = tf.reshape(iou_mask, (output_shape[0], an_num, output_shape[2], output_shape[3]))   # [bz, 3, 13, 13]  负样本和忽略样本处为1
+        iou_mask = tf.reshape(iou_mask, (output_shape[0], an_num, output_shape[2], output_shape[3]))   # [bz, 3, 13, 13]   候选负样本处为1
 
         # NOTE: tobj holds gt_score, obj_mask holds object existence mask
         obj_mask = tf.cast(tobj > 0., tf.float32)   # [bz, 3, 13, 13]  正样本处为1
 
+        # 候选负样本 中的 非正样本 才是负样本。其余是忽略样本。
+        noobj_mask = (1.0 - obj_mask) * iou_mask   # [N, 3, n_grid, n_grid]  负样本处为1
+
         # For positive objectness grids, objectness loss should be calculated
         # For negative objectness grids, objectness loss is calculated only iou_mask == 1.0
         sigmoid_obj = tf.sigmoid(obj)
-        loss_obj_pos = tobj * obj_mask * (0 - tf.log(sigmoid_obj + 1e-9))   # 由于有mixup增强，tobj正样本处不一定为1.0
-        loss_obj_neg = (1.0 - obj_mask) * iou_mask * (0 - tf.log(1 - sigmoid_obj + 1e-9))   # 非正样本，而且与gt的最高iou <= ignore_thresh才是负样本
+        loss_obj_pos = tobj * (0 - tf.log(sigmoid_obj + 1e-9))   # 由于有mixup增强，tobj正样本处不一定为1.0
+        loss_obj_neg = noobj_mask * (0 - tf.log(1 - sigmoid_obj + 1e-9))   # 负样本的损失
         loss_obj_pos = tf.reduce_sum(loss_obj_pos, axis=[1, 2, 3])
         loss_obj_neg = tf.reduce_sum(loss_obj_neg, axis=[1, 2, 3])
 
