@@ -337,7 +337,7 @@ class YOLOv3Loss(object):
         # NOTE: tobj holds gt_score, obj_mask holds object existence mask
         obj_mask = tf.cast(tobj > 0., tf.float32)   # [bz, 3, 13, 13]  正样本处为1
 
-        # 候选负样本 中的 非正样本 才是负样本。其余是忽略样本。
+        # 候选负样本 中的 非正样本 才是负样本。所有样本中，正样本和负样本之外的样本是忽略样本。
         noobj_mask = (1.0 - obj_mask) * iou_mask   # [N, 3, n_grid, n_grid]  负样本处为1
 
         # For positive objectness grids, objectness loss should be calculated
