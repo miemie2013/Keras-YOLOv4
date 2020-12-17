@@ -119,6 +119,13 @@ SPP：3个池化层的输出和原图拼接。
 
 多卡训练（由于咩酱只有一张6G的卡，也不是硕士生没有实验室，这部分可能不会实现）。
 
+L2权重衰减、学习率warm up和学习率分段衰减。这些在Pytorch版和Paddle版PPYOLO中都已经实现了：
+
+https://github.com/miemie2013/Pytorch-PPYOLO
+
+https://github.com/miemie2013/Paddle-PPYOLO
+
+
 ## 咩酱刷屏时刻
 
 Keras版YOLOv3: https://github.com/miemie2013/Keras-DIOU-YOLOv3
@@ -211,6 +218,40 @@ python demo.py --config=2
 ```
 
 
+## 数据集的放置位置
+数据集应该和本项目位于同一级目录。一个示例：
+```
+D://GitHub
+     |------COCO
+     |        |------annotations
+     |        |------test2017
+     |        |------train2017
+     |        |------val2017
+     |
+     |------VOCdevkit
+     |        |------VOC2007
+     |        |        |------Annotations
+     |        |        |------ImageSets
+     |        |        |------JPEGImages
+     |        |        |------SegmentationClass
+     |        |        |------SegmentationObject
+     |        |
+     |        |------VOC2012
+     |                 |------Annotations
+     |                 |------ImageSets
+     |                 |------JPEGImages
+     |                 |------SegmentationClass
+     |                 |------SegmentationObject
+     |
+     |------Keras-YOLOv4-master
+              |------annotation
+              |------config
+              |------data
+              |------model
+              |------...
+```
+
+
 ## 训练
 
 (如果使用yolov4_2x.py配置文件)
@@ -237,6 +278,8 @@ xxx.jpg 18.19,6.32,424.13,421.83,20 323.86,2.65,640.0,421.94,20
 xxx.jpg 48,240,195,371,11 8,12,352,498,14
 # 图片名 物体1左上角x坐标,物体1左上角y坐标,物体1右下角x坐标,物体1右下角y坐标,物体1类别id 物体2左上角x坐标,物体2左上角y坐标,物体2右下角x坐标,物体2右下角y坐标,物体2类别id ...
 ```
+注意：xxx.jpg仅仅是文件名而不是文件的路径！xxx.jpg仅仅是文件名而不是文件的路径！xxx.jpg仅仅是文件名而不是文件的路径！
+
 运行1_txt2json.py会在annotation_json目录下生成两个coco注解风格的json注解文件，这是train.py支持的注解文件格式。 
 在config/xxxxxxx.py里修改train_path、val_path、classes_path、train_pre_path、val_pre_path、num_classes这6个变量（自带的voc2012数据集直接解除注释就ok了）,就可以开始训练自己的数据集了。 
 如果需要跑demo.py、eval.py，与数据集有关的变量也需要修改一下，应该很容易看懂。
